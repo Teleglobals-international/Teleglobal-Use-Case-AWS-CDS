@@ -63,18 +63,48 @@ The app is designed to run end-to-end on a laptop with only AWS Bedrock access:
 - **Model** — if Bedrock is unreachable, a deterministic fallback answers from
   the local corpus.
 
-## 5. Security & compliance notes
+## 5. Confidential data sources (KYC, identity, transactions)
+
+Confidential, investor-specific details are **synthetic in this demo**. They are
+never real in this codebase and are not fetched from any live system here.
+
+In production these details MUST come from authoritative, consent-based sources
+only — not from any data generated or stored by this assistant:
+
+| Data | Demo (now) | Production source |
+|------|------------|-------------------|
+| KYC status & completion | In-memory flag on a synthetic profile | **DigiLocker** consent-based e-KYC / Issued-Documents APIs (PAN + Aadhaar + address proof), persisted via Axis Bank CKYC/KRA |
+| PAN / Aadhaar / identity docs | Never collected | Shared by the investor **through DigiLocker** with explicit consent; only the verification result is returned |
+| SIP / redemption / folio status | Synthetic sample responses | Axis Bank / Axis AMC transaction APIs |
+| Investor profile / holdings | `data/investors.json` (synthetic) | Axis AMC systems of record |
+
+Key principles for the production integration:
+
+- **DigiLocker first for identity/KYC.** The investor authenticates with
+  DigiLocker and consents to share documents; the assistant receives only the
+  verified outcome (e.g. "KYC verified"), never raw PAN/Aadhaar numbers.
+- **Consent + least data.** Pull the minimum needed, per request, with an
+  auditable consent artefact. Do not cache confidential PII in this service.
+- **Axis Bank APIs for money movement and account state** (SIP, redemption,
+  folio, bank mandate), called server-side with scoped credentials.
+
+The relevant code (`tools.get_service_status`, `tools.complete_kyc`) carries a
+`PRODUCTION NOTE` marking exactly where these integrations plug in.
+
+## 6. Security & compliance notes
 
 - Credentials are read only from the repo-root `.env`; never hard-coded and
   never sent to the browser (the Node layer proxies all API calls).
 - PII (PAN, Aadhaar, account numbers, phone, email) is masked before the text
   reaches the model or logs.
+- Confidential investor data (KYC/identity/transactions) is synthetic here; in
+  production it is sourced from DigiLocker and Axis Bank APIs (see section 5).
 - The agent is constrained by a policy that forbids personalised investment
   advice and predicted returns; such requests are routed to a human advisor.
 - Every answer carries the statutory market-risk disclaimer.
 - All seed investor/fund data is **synthetic**.
 
-## 6. Production hardening (next steps)
+## 7. Production hardening (next steps)
 
 - Deploy the backend as an AgentCore Runtime / Lambda behind API Gateway.
 - Provision a real Knowledge Base (S3 + embeddings) and set `KNOWLEDGE_BASE_ID`.

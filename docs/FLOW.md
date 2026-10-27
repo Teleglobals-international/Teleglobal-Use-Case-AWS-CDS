@@ -36,7 +36,7 @@ flowchart TD
 
     subgraph Knowledge["Knowledge & data"]
         KB["Knowledge Bases for Bedrock<br/>(local corpus fallback)"]
-        SVCAPI["Service API (mock)<br/>SIP / redemption / KYC"]
+        SVCAPI["Service API (synthetic now)<br/>prod: DigiLocker KYC + Axis Bank APIs"]
         DDB["DynamoDB<br/>advisor hand-off queue"]
     end
 
@@ -92,3 +92,16 @@ flowchart LR
 | 6 | Reply on WhatsApp (text, buttons, factsheet PDF) | `tools.send_whatsapp()` |
 | 7 | Factsheet / summary emailed via SES | `tools.send_email()` |
 | 8 | "Talk to advisor": hand-off queued + SES alert | `tools.handoff_to_advisor()` |
+
+## Confidential data (KYC / identity / transactions)
+
+The Service API node is **synthetic** in this demo (`tools.get_service_status`,
+`tools.complete_kyc`). In production, confidential investor details are not
+generated or stored by this assistant — they come from authoritative,
+consent-based sources:
+
+- **DigiLocker** for identity and KYC (PAN + Aadhaar, address proof); only the
+  verified result flows back to the agent — never raw document numbers.
+- **Axis Bank / Axis AMC APIs** for SIP, redemption, folio and account state.
+
+See [ARCHITECTURE.md §5](ARCHITECTURE.md#5-confidential-data-sources-kyc-identity-transactions).

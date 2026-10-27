@@ -38,8 +38,54 @@ body {
   border-radius: 6px;
 }
 .brand-name { font-weight: 600; color: var(--axis-maroon); }
-.channel-picker { font-size: 0.85rem; color: var(--muted); }
-.channel-picker select { margin-left: 8px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); }
+.auth-area { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--muted); }
+.auth-status { font-weight: 600; color: var(--ink); }
+.auth-btn {
+  border: 1.5px solid var(--axis-maroon); background: var(--axis-maroon); color: #fff;
+  border-radius: 8px; padding: 7px 16px; font-weight: 600; cursor: pointer; font-size: 0.85rem;
+}
+.auth-btn:hover { background: var(--axis-maroon-dark); }
+.auth-btn.ghost { background: #fff; color: var(--axis-maroon); }
+.auth-btn.ghost:hover { background: #fdf2f7; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(17, 24, 39, 0.5);
+  display: flex; align-items: center; justify-content: center; z-index: 50; padding: 20px;
+}
+/* The HTML `hidden` attribute must win over `display: flex` above. */
+.modal-overlay[hidden] { display: none !important; }
+.modal {
+  background: var(--card); border-radius: 16px; width: 100%; max-width: 420px;
+  padding: 26px; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+.modal-close {
+  position: absolute; top: 14px; right: 16px; border: none; background: none;
+  font-size: 1.5rem; line-height: 1; color: var(--muted); cursor: pointer;
+}
+.modal-tabs { display: flex; gap: 6px; margin-bottom: 18px; }
+.modal-tab {
+  flex: 1; border: none; background: #f1f3f9; color: var(--muted);
+  padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer;
+}
+.modal-tab.active { background: var(--axis-maroon); color: #fff; }
+.modal-form h2 { margin: 0 0 16px; font-size: 1.15rem; }
+.modal-form label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 14px; }
+.modal-form input, .modal-form select {
+  display: block; width: 100%; margin-top: 6px; padding: 11px 12px;
+  border: 1px solid var(--border); border-radius: 9px; font-size: 0.95rem; color: var(--ink);
+}
+.demo-hint { font-size: 0.78rem; color: var(--muted); margin: -6px 0 14px; }
+.demo-hint code { background: #f1f3f9; padding: 1px 5px; border-radius: 4px; }
+.modal-error {
+  background: #fde8ec; color: #97144d; border: 1px solid #f3cfe0;
+  border-radius: 8px; padding: 8px 12px; font-size: 0.85rem; margin-bottom: 12px;
+}
+.modal-submit {
+  width: 100%; border: none; background: var(--axis-maroon); color: #fff;
+  padding: 12px; border-radius: 9px; font-weight: 700; cursor: pointer; font-size: 0.95rem;
+}
+.modal-submit:hover { background: var(--axis-maroon-dark); }
 
 .container { max-width: 880px; margin: 0 auto; padding: 32px 20px 80px; }
 

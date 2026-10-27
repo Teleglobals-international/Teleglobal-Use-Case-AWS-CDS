@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI
+import re
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -25,6 +27,7 @@ from .router import NormalisedMessage, normalise_email, normalise_whatsapp, rout
 from . import tools as toolbox
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+logger = logging.getLogger("mf_assistant.main")
 
 app = FastAPI(
     title="Axis AMC - MF Investor Assistant",
@@ -68,6 +71,18 @@ class EmailEvent(BaseModel):
         populate_by_name = True
 
 
+class LoginRequest(BaseModel):
+    user_id: str = Field(..., description="Phone (+91...) or email used at sign-up")
+
+
+class RegisterRequest(BaseModel):
+    name: str = Field(..., min_length=1)
+    user_id: str = Field(..., description="Phone (+91...) or email to register")
+    language: str = Field("English")
+    risk_tolerance: str = Field("Moderate")
+    investment_goals: list[str] = Field(default_factory=list)
+
+
 # --------------------------------------------------------------------------- #
 # Routes
 # --------------------------------------------------------------------------- #
@@ -100,22 +115,84 @@ def homepage(user_id: str = "guest") -> dict:
         hits = search_fund_docs(goal, top_k=1)
         if hits:
             suggestions.append(
-                {"goal": goal, "fund": hits[0]["fund"], "pdf_url": hits[0]["pdf_url"]}
+                {
+                    "goal": goal,
+                    "fund": hits[0]["fund"],
+                    "pdf_url": hits[0]["pdf_url"],
+                    "fund_url": hits[0].get("fund_url", hits[0]["pdf_url"]),
+                }
             )
     return {
         "greeting": f"Welcome back, {profile.get('name')}" if user_id != "guest" else "Welcome to Axis MF",
         "profile": profile,
         "trending": trending,
         "personalised": suggestions,
-        "quick_actions": ["Start a SIP", "Check KYC", "Redeem units", "Download factsheet"],
     }
+
+
+def _normalise_user_id(raw: str) -> str:
+    """Normalise a login/register id: emails lowercased, phones to +91 form."""
+    uid = (raw or "").strip()
+    if "@" in uid:
+        return uid.lower()
+    digits = re.sub(r"\D", "", uid)
+    if digits:
+        # Keep the last 10 digits and prefix +91 (demo assumes Indian numbers).
+        return "+91" + digits[-10:]
+    return uid
+
+
+@app.post("/api/login")
+def login(req: LoginRequest) -> dict:
+    """Authenticate against the synthetic/registered investor directory."""
+    uid = _normalise_user_id(req.user_id)
+    mem = get_memory()
+    if uid == "guest" or not mem.exists(uid):
+        raise HTTPException(
+            status_code=404,
+            detail="No account found for that ID. Please register, or continue as Guest.",
+        )
+    return {"status": "ok", "profile": mem.get_profile(uid)}
+
+
+@app.post("/api/register")
+def register(req: RegisterRequest) -> dict:
+    """Create a new in-memory investor profile and 'log in' as that user."""
+    uid = _normalise_user_id(req.user_id)
+    if uid == "guest":
+        raise HTTPException(status_code=400, detail="'guest' is reserved.")
+    channel = "email" if "@" in uid else "whatsapp"
+    profile = {
+        "name": req.name.strip(),
+        "channel": channel,
+        "language": req.language or "English",
+        "risk_tolerance": req.risk_tolerance or "Moderate",
+        "investment_goals": req.investment_goals or [],
+        "kyc_status": "Pending",
+        "holdings": [],
+    }
+    try:
+        created = get_memory().register(uid, profile)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return {"status": "ok", "profile": created}
 
 
 @app.post("/api/chat")
 def chat(req: ChatRequest) -> dict:
-    return route(
+    result = route(
         NormalisedMessage(user_id=req.user_id, text=req.message, channel=req.channel, page=req.page)
     )
+    # Log the web turn so the "Agent activity" panel reflects web chats too
+    # (WhatsApp/email/hand-off tools already record themselves).
+    toolbox.record_agent_turn(
+        user_id=req.user_id,
+        channel=req.channel,
+        query=req.message,
+        intent=result.get("intent", "information"),
+        tools_used=[t.get("tool") for t in result.get("tool_trace", [])],
+    )
+    return result
 
 
 @app.post("/webhooks/whatsapp")

@@ -25,8 +25,32 @@ Liveness + configuration summary.
 ---
 
 ## GET /api/homepage?user_id=<id>
-Personalised homepage: greeting, profile, trending queries, goal-based
-suggestions and quick actions.
+Personalised homepage: greeting, profile, trending queries and goal-based
+suggestions.
+
+---
+
+## POST /api/login
+Authenticate against the synthetic/registered investor directory.
+
+```json
+{ "user_id": "+919000000001" }
+```
+Returns `{ "status": "ok", "profile": { … } }`, or `404` if no account exists.
+
+## POST /api/register
+Create a new **in-memory** investor profile and sign in as that user.
+
+```json
+{ "name": "Demo User", "user_id": "9876543210", "language": "English",
+  "risk_tolerance": "Moderate", "investment_goals": ["Tax saving"] }
+```
+New accounts start with `kyc_status: "Pending"`. Returns `409` if the id exists.
+
+> **Confidential data note:** login/register here use synthetic profiles. In
+> production, identity is established via **DigiLocker** (PAN + Aadhaar, with
+> consent) and account linkage via **Axis Bank APIs**. This service never
+> stores raw PAN/Aadhaar numbers.
 
 ---
 

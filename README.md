@@ -11,6 +11,13 @@ architecture.
 - **Frontend:** Node.js + Express (unified search + chat single-page UI)
 
 > Synthetic data only. Provides information, not investment advice.
+>
+> **Confidential investor data (KYC, identity, transactions) is synthetic in
+> this demo.** In production it is sourced only from authoritative,
+> consent-based systems — identity/KYC via **DigiLocker** (PAN + Aadhaar) and
+> account/transaction data via **Axis Bank APIs**. Raw PAN/Aadhaar numbers are
+> never collected or stored by this service. See
+> [Confidential data sources](docs/ARCHITECTURE.md#5-confidential-data-sources-kyc-identity-transactions).
 
 ---
 
@@ -44,6 +51,11 @@ Mapped directly to the PRD:
   "Talk to an advisor".
 - **Guardrails** — PII masking, no personalised advice, statutory disclaimer.
 - **Human hand-off** — queue + advisor alert.
+- **Login / register** — demo auth against synthetic investor profiles (plus
+  in-memory registration), so the assistant has an identity for account queries.
+- **KYC & service status** — synthetic in this demo. In production, confidential
+  details come from **DigiLocker** (identity/KYC) and **Axis Bank APIs**
+  (SIP/redemption/folio); see the note above.
 
 ## Repository layout
 

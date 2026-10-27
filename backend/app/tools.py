@@ -17,7 +17,6 @@ end-to-end flow always completes.
 from __future__ import annotations
 
 import logging
-import random
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -31,6 +30,27 @@ logger = logging.getLogger("mf_assistant.tools")
 # In-memory record of simulated outbound messages / hand-offs, surfaced in the
 # API response so the UI (and tests) can show what "would have been sent".
 OUTBOX: list[dict[str, Any]] = []
+
+
+def record_agent_turn(
+    user_id: str,
+    channel: str,
+    query: str,
+    intent: str,
+    tools_used: list[str],
+) -> dict[str, Any]:
+    """Log a completed agent turn so the UI activity panel can show it."""
+    return _record(
+        "agent_turn",
+        {
+            "user_id": user_id,
+            "channel": channel,
+            "query": query[:120],
+            "intent": intent,
+            "tools_used": [t for t in tools_used if t],
+        },
+        simulated=False,
+    )
 
 
 def _record(kind: str, payload: dict[str, Any], simulated: bool) -> dict[str, Any]:
@@ -111,13 +131,34 @@ def send_email(to: str, subject: str, body: str, attachment_url: str | None = No
 
 
 def get_service_status(user_id: str, service: str) -> dict[str, Any]:
-    """Mock Service API: SIP / redemption / KYC status (synthetic data)."""
+    """Mock Service API: SIP / redemption / KYC status (synthetic data).
+
+    KYC status reflects the user's real (in-memory) profile so that completing
+    KYC is consistent across turns. SIP/redemption remain synthetic samples.
+
+    PRODUCTION NOTE (confidential investor data):
+      In production this must NOT use synthetic data. Confidential details are
+      sourced from authoritative systems only:
+        - KYC / identity (PAN, Aadhaar, address proof): fetched from DigiLocker
+          via its consent-based Issued-Documents / e-KYC APIs (CKYC/KRA).
+        - SIP / redemption / folio: Axis Bank / Axis AMC transaction APIs.
+      No PII is stored locally; the assistant only receives the user-consented
+      verification result. See docs/ARCHITECTURE.md ("Confidential data sources").
+    """
+    from .memory import get_memory  # local import to avoid a cycle
+
     service = service.lower().strip()
+    if service == "kyc":
+        profile = get_memory().get_profile(user_id)
+        status = profile.get("kyc_status", "Unknown")
+        detail = {
+            "Verified": "Your KYC is verified. You're all set to invest.",
+            "Pending": "Your KYC is pending. Complete it to start investing.",
+            "Under review": "Your KYC is under review; this usually takes 1-2 working days.",
+        }.get(status, "KYC status is not available for your account.")
+        return {"user_id": user_id, "service": "kyc", "status": status, "detail": detail}
+
     synthetic = {
-        "kyc": {
-            "status": random.choice(["Verified", "Pending", "Under review"]),
-            "detail": "KYC verified via KRA using PAN + Aadhaar." ,
-        },
         "sip": {
             "status": "Active",
             "detail": "Monthly SIP of Rs 5,000 in Axis Bluechip Fund, next debit on the 5th.",
@@ -129,6 +170,50 @@ def get_service_status(user_id: str, service: str) -> dict[str, Any]:
     }
     info = synthetic.get(service, {"status": "Unknown", "detail": "No record found for this service."})
     return {"user_id": user_id, "service": service, **info}
+
+
+def complete_kyc(user_id: str) -> dict[str, Any]:
+    """Complete (demo) KYC verification for the logged-in investor.
+
+    Marks the profile's kyc_status as Verified and returns a definitive result,
+    so the assistant can confirm completion instead of looping on 'are you
+    ready?'. Guests (not logged in) cannot complete KYC.
+
+    PRODUCTION NOTE (confidential investor data):
+      This demo simply flips an in-memory flag. In production, KYC completion is
+      a consent-driven DigiLocker flow: the investor authenticates with
+      DigiLocker, consents to share PAN + Aadhaar (and address proof), and the
+      verified result is returned via DigiLocker's e-KYC / Issued-Documents APIs
+      and persisted through Axis Bank's CKYC/KRA integration. We never collect or
+      store raw PAN/Aadhaar numbers in this service.
+    """
+    from .memory import get_memory  # local import to avoid a cycle
+
+    mem = get_memory()
+    if user_id == "guest" or not mem.exists(user_id):
+        return {
+            "user_id": user_id,
+            "status": "login_required",
+            "detail": "Please log in or register before completing KYC.",
+        }
+
+    current = mem.get_profile(user_id).get("kyc_status")
+    if current == "Verified":
+        return {"user_id": user_id, "status": "Verified", "already": True,
+                "detail": "Your KYC is already verified."}
+
+    ref = f"KYC-{uuid.uuid4().hex[:8].upper()}"
+    mem.update_profile(user_id, {"kyc_status": "Verified"})
+    return _record(
+        "kyc",
+        {
+            "user_id": user_id,
+            "status": "Verified",
+            "reference": ref,
+            "detail": "KYC verified via e-KYC (PAN + Aadhaar). You can now invest.",
+        },
+        simulated=True,
+    )
 
 
 def handoff_to_advisor(user_id: str, reason: str, summary: str) -> dict[str, Any]:

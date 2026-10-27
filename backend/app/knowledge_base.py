@@ -62,6 +62,7 @@ def _local_search(query: str, top_k: int) -> list[dict[str, Any]]:
                 "category": doc["category"],
                 "snippet": doc["content"],
                 "pdf_url": doc["pdf_url"],
+                "fund_url": doc.get("fund_url", doc["pdf_url"]),
                 "score": round(score, 3),
                 "source": "local",
             }

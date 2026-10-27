@@ -12,15 +12,66 @@
         <span class="logo">AXIS</span>
         <span class="brand-name">Mutual Fund</span>
       </div>
-      <div class="channel-picker">
-        <label for="user">Signed in as</label>
-        <select id="user" title="Switch investor profile (synthetic)">
-          <option value="guest">Guest (web)</option>
-          <option value="+919000000001">Ravi Kumar (WhatsApp, Hinglish)</option>
-          <option value="priya@example.com">Priya Sharma (Email, English)</option>
-        </select>
+      <div class="auth-area">
+        <span id="auth-status" class="auth-status">Browsing as Guest</span>
+        <button id="login-btn" class="auth-btn" type="button">Login</button>
+        <button id="logout-btn" class="auth-btn ghost" type="button" hidden>Logout</button>
       </div>
     </header>
+
+    <!-- Login / Register modal -->
+    <div id="auth-modal" class="modal-overlay" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+        <div class="modal-tabs">
+          <button class="modal-tab active" data-tab="login" type="button">Login</button>
+          <button class="modal-tab" data-tab="register" type="button">Register</button>
+        </div>
+
+        <form id="login-form" class="modal-form" data-panel="login">
+          <h2 id="modal-title">Login to Axis MF</h2>
+          <label>Registered mobile or email
+            <input id="login-id" type="text" placeholder="+91 90000 00001 or you@email.com" autocomplete="username" required />
+          </label>
+          <p class="demo-hint">Demo accounts: <code>+919000000001</code> (Ravi) · <code>priya@example.com</code> (Priya)</p>
+          <div class="modal-error" id="login-error" hidden></div>
+          <button class="modal-submit" type="submit">Login</button>
+        </form>
+
+        <form id="register-form" class="modal-form" data-panel="register" hidden>
+          <h2>Create your account</h2>
+          <label>Full name
+            <input id="reg-name" type="text" placeholder="Your name" required />
+          </label>
+          <label>Mobile or email
+            <input id="reg-id" type="text" placeholder="+91 98765 43210 or you@email.com" required />
+          </label>
+          <label>Preferred language
+            <select id="reg-language">
+              <option>English</option>
+              <option>Hinglish</option>
+            </select>
+          </label>
+          <label>Risk tolerance
+            <select id="reg-risk">
+              <option>Conservative</option>
+              <option selected>Moderate</option>
+              <option>High</option>
+            </select>
+          </label>
+          <label>Primary goal
+            <select id="reg-goal">
+              <option>Wealth creation</option>
+              <option>Retirement</option>
+              <option>Tax saving</option>
+              <option>Child education</option>
+            </select>
+          </label>
+          <div class="modal-error" id="register-error" hidden></div>
+          <button class="modal-submit" type="submit">Create account &amp; login</button>
+        </form>
+      </div>
+    </div>
 
     <main class="container">
       <!-- Unified search bar (PRD: prominent, accessible everywhere) -->
@@ -52,10 +103,6 @@
         <div class="card">
           <h2 id="greeting">Welcome to Axis MF</h2>
           <div class="chips" id="trending"></div>
-        </div>
-        <div class="card">
-          <h3>Quick actions</h3>
-          <div class="chips" id="quick-actions"></div>
         </div>
         <div class="card" id="personalised-card" hidden>
           <h3>Suggested for your goals</h3>

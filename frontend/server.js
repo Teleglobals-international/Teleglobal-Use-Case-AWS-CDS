@@ -46,6 +46,8 @@ async function proxy(req, res, path, method = "GET") {
 }
 
 app.get("/api/homepage", (req, res) => proxy(req, res, "/api/homepage"));
+app.post("/api/login", (req, res) => proxy(req, res, "/api/login", "POST"));
+app.post("/api/register", (req, res) => proxy(req, res, "/api/register", "POST"));
 app.post("/api/chat", (req, res) => proxy(req, res, "/api/chat", "POST"));
 app.get("/api/outbox", (req, res) => proxy(req, res, "/api/outbox"));
 app.post("/api/reset", (req, res) => proxy(req, res, "/api/reset", "POST"));
