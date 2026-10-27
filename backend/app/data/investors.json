@@ -1,0 +1,32 @@
+{
+  "note": "Synthetic investor profiles only - no real PII.",
+  "investors": {
+    "+919000000001": {
+      "name": "Ravi Kumar",
+      "channel": "whatsapp",
+      "language": "Hinglish",
+      "risk_tolerance": "Moderate",
+      "investment_goals": ["Retirement", "Tax saving"],
+      "kyc_status": "Verified",
+      "holdings": ["Axis Bluechip Fund", "Axis ELSS Tax Saver Fund"]
+    },
+    "priya@example.com": {
+      "name": "Priya Sharma",
+      "channel": "email",
+      "language": "English",
+      "risk_tolerance": "High",
+      "investment_goals": ["Wealth creation"],
+      "kyc_status": "Pending",
+      "holdings": ["Axis Small Cap Fund"]
+    },
+    "guest": {
+      "name": "Guest Investor",
+      "channel": "web",
+      "language": "English",
+      "risk_tolerance": "Unknown",
+      "investment_goals": [],
+      "kyc_status": "Unknown",
+      "holdings": []
+    }
+  }
+}

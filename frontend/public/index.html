@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Axis MF - Investor Assistant</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">AXIS</span>
+        <span class="brand-name">Mutual Fund</span>
+      </div>
+      <div class="channel-picker">
+        <label for="user">Signed in as</label>
+        <select id="user" title="Switch investor profile (synthetic)">
+          <option value="guest">Guest (web)</option>
+          <option value="+919000000001">Ravi Kumar (WhatsApp, Hinglish)</option>
+          <option value="priya@example.com">Priya Sharma (Email, English)</option>
+        </select>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Unified search bar (PRD: prominent, accessible everywhere) -->
+      <section class="search-hero">
+        <h1>How can I help you invest today?</h1>
+        <form id="search-form" class="search-box" role="search">
+          <input
+            id="search-input"
+            type="text"
+            autocomplete="off"
+            placeholder="Search funds, SIPs, KYC, redemptions… (English or Hinglish)"
+            aria-label="Search Axis Mutual Fund"
+          />
+          <button type="submit" aria-label="Search">Ask</button>
+        </form>
+        <p class="context-hint">
+          Page context:
+          <select id="page-context" title="Simulated current page">
+            <option value="">Home</option>
+            <option value="KYC">KYC page</option>
+            <option value="Product catalog">Product catalog</option>
+            <option value="SIP">SIP setup</option>
+          </select>
+        </p>
+      </section>
+
+      <!-- Personalised homepage (recommendations + trending + quick actions) -->
+      <section id="homepage" class="homepage">
+        <div class="card">
+          <h2 id="greeting">Welcome to Axis MF</h2>
+          <div class="chips" id="trending"></div>
+        </div>
+        <div class="card">
+          <h3>Quick actions</h3>
+          <div class="chips" id="quick-actions"></div>
+        </div>
+        <div class="card" id="personalised-card" hidden>
+          <h3>Suggested for your goals</h3>
+          <div id="personalised"></div>
+        </div>
+      </section>
+
+      <!-- AI-powered results + chat window -->
+      <section id="chat-panel" class="chat-panel" hidden>
+        <div id="messages" class="messages" aria-live="polite"></div>
+        <form id="chat-form" class="chat-input">
+          <input id="chat-text" type="text" placeholder="Ask a follow-up…" autocomplete="off" />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+
+      <!-- Outbox: shows messages the agent "sent" via WhatsApp/SES (demo aid) -->
+      <section class="outbox">
+        <details>
+          <summary>Agent activity (WhatsApp / Email / Advisor hand-offs)</summary>
+          <div id="outbox-list"></div>
+        </details>
+      </section>
+    </main>
+
+    <footer class="footer">
+      Synthetic data only. Information, not investment advice. Mutual fund
+      investments are subject to market risks.
+    </footer>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
