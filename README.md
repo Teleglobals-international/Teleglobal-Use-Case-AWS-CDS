@@ -176,3 +176,4 @@ fallback without requiring network access.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — design and CDS mapping
 - [`docs/FLOW.md`](docs/FLOW.md) — flow diagrams
 - [`docs/API.md`](docs/API.md) — endpoint reference
+- [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) — changelog / release notes
