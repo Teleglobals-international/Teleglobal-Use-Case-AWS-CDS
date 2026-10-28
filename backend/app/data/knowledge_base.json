@@ -1,45 +1,45 @@
 {
-  "note": "Synthetic descriptions for retrieval. Links point to the real Axis MF website. Not investment advice.",
+  "note": "Synthetic descriptions for retrieval. Links point to the real fund-house website. Not investment advice.",
   "documents": [
     {
-      "id": "sid-axis-bluechip",
+      "id": "sid-largecap",
       "type": "SID",
-      "title": "Axis Bluechip Fund (Axis Large Cap Fund) - Scheme Information",
-      "fund": "Axis Bluechip Fund",
+      "title": "Large Cap Fund - Scheme Information",
+      "fund": "Large Cap Fund",
       "category": "Equity - Large Cap",
-      "fund_url": "https://www.axismf.com/mutual-funds",
-      "pdf_url": "https://www.axismf.com/mutual-funds",
-      "content": "Axis Bluechip Fund is an open-ended equity scheme predominantly investing in large cap stocks. Investment objective: achieve long-term capital appreciation by investing in a diversified portfolio of equity and equity-related instruments of large cap companies. Benchmark: Nifty 100 TRI. Minimum SIP amount: Rs 500. Exit load: 1% if redeemed within 12 months. Risk level: Very High. Suitable for investors with an investment horizon of 5+ years."
+      "fund_url": "https://www.axismf.com/mutual-funds/equity-funds",
+      "pdf_url": "https://www.axismf.com/mutual-funds/equity-funds",
+      "content": "The Large Cap Fund is an open-ended equity scheme predominantly investing in large cap stocks. Investment objective: achieve long-term capital appreciation by investing in a diversified portfolio of equity and equity-related instruments of large cap companies. Benchmark: a broad large cap index TRI. Minimum SIP amount: Rs 500. Exit load: 1% if redeemed within 12 months. Risk level: Very High. Suitable for investors with an investment horizon of 5+ years."
     },
     {
-      "id": "sid-axis-smallcap",
+      "id": "sid-smallcap",
       "type": "SID",
-      "title": "Axis Small Cap Fund - Scheme Information Document",
-      "fund": "Axis Small Cap Fund",
+      "title": "Small Cap Fund - Scheme Information Document",
+      "fund": "Small Cap Fund",
       "category": "Equity - Small Cap",
       "fund_url": "https://www.axismf.com/mutual-funds/equity-funds/axis-small-cap-fund/sc-gp/regular",
       "pdf_url": "https://www.axismf.com/mutual-funds/equity-funds/axis-small-cap-fund/sc-gp/regular",
-      "content": "Axis Small Cap Fund is an open-ended equity scheme predominantly investing in small cap stocks. Investment objective: long-term capital appreciation from a portfolio of small cap companies. Benchmark: Nifty Smallcap 250 TRI. Minimum SIP amount: Rs 100. Exit load: 1% if redeemed within 12 months (10% of units exempt). Risk level: Very High. Higher volatility; suitable for investors with high risk tolerance and 5+ year horizon."
+      "content": "The Small Cap Fund is an open-ended equity scheme predominantly investing in small cap stocks. Investment objective: long-term capital appreciation from a portfolio of small cap companies. Benchmark: a small cap index TRI. Minimum SIP amount: Rs 100. Exit load: 1% if redeemed within 12 months (10% of units exempt). Risk level: Very High. Higher volatility; suitable for investors with high risk tolerance and 5+ year horizon."
     },
     {
-      "id": "fs-axis-liquid",
+      "id": "fs-liquid",
       "type": "Factsheet",
-      "title": "Axis Liquid Fund - Scheme Information",
-      "fund": "Axis Liquid Fund",
+      "title": "Liquid Fund - Scheme Information",
+      "fund": "Liquid Fund",
       "category": "Debt - Liquid",
-      "fund_url": "https://www.axismf.com/mutual-funds",
-      "pdf_url": "https://www.axismf.com/mutual-funds",
-      "content": "Axis Liquid Fund is an open-ended liquid scheme investing in money market and debt instruments with maturity up to 91 days. Objective: provide a high level of liquidity with reasonable returns. Benchmark: NIFTY Liquid Index A-I. Risk level: Low to Moderate. Ideal for parking surplus funds for short durations. Relatively low interest rate risk and moderate credit risk."
+      "fund_url": "https://www.axismf.com/mutual-funds/debt-funds",
+      "pdf_url": "https://www.axismf.com/mutual-funds/debt-funds",
+      "content": "The Liquid Fund is an open-ended liquid scheme investing in money market and debt instruments with maturity up to 91 days. Objective: provide a high level of liquidity with reasonable returns. Benchmark: a liquid index. Risk level: Low to Moderate. Ideal for parking surplus funds for short durations. Relatively low interest rate risk and moderate credit risk."
     },
     {
-      "id": "fs-axis-elss",
+      "id": "fs-elss",
       "type": "Factsheet",
-      "title": "Axis ELSS Tax Saver Fund - Scheme Information",
-      "fund": "Axis ELSS Tax Saver Fund",
+      "title": "ELSS Tax Saver Fund - Scheme Information",
+      "fund": "ELSS Tax Saver Fund",
       "category": "Equity - ELSS (Tax Saving)",
       "fund_url": "https://www.axismf.com/mutual-funds/equity-funds/axis-elss-tax-saver-fund/ts-gp/regular",
       "pdf_url": "https://www.axismf.com/1/5/85/88/227/275/AxisELSSTaxSaverFund-SID.pdf",
-      "content": "Axis ELSS Tax Saver Fund is an open-ended equity linked savings scheme with a statutory lock-in of 3 years and tax benefit under Section 80C of the Income Tax Act. Objective: generate long-term capital appreciation. Benchmark: Nifty 500 TRI. Minimum SIP amount: Rs 500. Risk level: Very High. Investments up to Rs 1.5 lakh per year qualify for 80C deduction."
+      "content": "The ELSS Tax Saver Fund is an open-ended equity linked savings scheme with a statutory lock-in of 3 years and tax benefit under Section 80C of the Income Tax Act. Objective: generate long-term capital appreciation. Benchmark: a broad market index TRI. Minimum SIP amount: Rs 500. Risk level: Very High. Investments up to Rs 1.5 lakh per year qualify for 80C deduction."
     },
     {
       "id": "faq-kyc",
@@ -69,7 +69,7 @@
       "category": "Service - Redemption",
       "fund_url": "https://www.axismf.com/mutual-fund-knowledge-centre/articles",
       "pdf_url": "https://www.axismf.com/mutual-fund-knowledge-centre/articles",
-      "content": "To redeem units, log in to the Axis MF portal or app, select the scheme, and enter the amount or number of units to redeem. Redemption proceeds are credited to your registered bank account. Equity funds: T+2 settlement. Liquid/debt funds: T+1. Note any applicable exit load and capital gains tax. ELSS units can only be redeemed after the 3-year lock-in."
+      "content": "To redeem units, log in to the fund house portal or app, select the scheme, and enter the amount or number of units to redeem. Redemption proceeds are credited to your registered bank account. Equity funds: T+2 settlement. Liquid/debt funds: T+1. Note any applicable exit load and capital gains tax. ELSS units can only be redeemed after the 3-year lock-in."
     }
   ]
 }

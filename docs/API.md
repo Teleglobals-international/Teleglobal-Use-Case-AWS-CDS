@@ -18,9 +18,11 @@ Liveness + configuration summary.
   "model": "apac.anthropic.claude-3-5-sonnet-20241022-v2:0",
   "aws_credentials": true,
   "knowledge_base": "local",
-  "channels": "simulated"
+  "channels": "live",
+  "auth": "cognito"
 }
 ```
+`channels`: `live` (SES) or `simulated`. `auth`: `cognito` or `local`.
 
 ---
 
@@ -30,27 +32,52 @@ suggestions.
 
 ---
 
-## POST /api/login
-Authenticate against the synthetic/registered investor directory.
+## Authentication
 
+When Cognito is configured (`auth: "cognito"`), email accounts use
+password + email-code flows. The seed demo accounts (`+919000000001`,
+`investor2@example.com`) use a password-less local fallback. All auth endpoints
+normalise the id (emails lowercased; phones to `+91…`).
+
+### POST /api/login
 ```json
-{ "user_id": "+919000000001" }
+{ "user_id": "you@email.com", "password": "Secret123" }
 ```
-Returns `{ "status": "ok", "profile": { … } }`, or `404` if no account exists.
+Returns `{ "status": "ok", "profile": { … } }`. `401` for bad credentials /
+unconfirmed user; `404` if not found. Password optional for local demo accounts.
 
-## POST /api/register
-Create a new **in-memory** investor profile and sign in as that user.
-
+### POST /api/register
 ```json
-{ "name": "Demo User", "user_id": "9876543210", "language": "English",
-  "risk_tolerance": "Moderate", "investment_goals": ["Tax saving"] }
+{ "name": "Demo User", "user_id": "you@email.com", "password": "Secret123",
+  "language": "English", "risk_tolerance": "Moderate",
+  "investment_goals": ["Tax saving"] }
 ```
-New accounts start with `kyc_status: "Pending"`. Returns `409` if the id exists.
+With Cognito → returns `{ "status": "confirmation_required", "user_id": … }` and
+emails a 6-digit code. Without Cognito → creates an in-memory profile and returns
+`{ "status": "ok", "profile": { … } }`. New accounts start `kyc_status: "Pending"`.
 
-> **Confidential data note:** login/register here use synthetic profiles. In
-> production, identity is established via **DigiLocker** (PAN + Aadhaar, with
-> consent) and account linkage via **Axis Bank APIs**. This service never
-> stores raw PAN/Aadhaar numbers.
+### POST /api/confirm
+Confirm a Cognito sign-up with the emailed code, then log in.
+```json
+{ "user_id": "you@email.com", "code": "123456" }
+```
+
+### POST /api/forgot-password
+Emails a password-reset code.
+```json
+{ "user_id": "you@email.com" }
+```
+
+### POST /api/reset-password
+Set a new password with the emailed code.
+```json
+{ "user_id": "you@email.com", "code": "123456", "password": "NewPass123" }
+```
+
+> **Confidential data note:** auth here uses Cognito (email + password) or a
+> synthetic local fallback. In production, identity/KYC is established via an
+> **identity/KYC provider** (PAN + Aadhaar, with consent) and account linkage
+> via the **fund house transaction APIs**. Raw PAN/Aadhaar are never stored.
 
 ---
 
@@ -72,7 +99,7 @@ Response:
 {
   "answer": "… grounded answer …\n\n---\n*disclaimer*",
   "ctas": [
-    { "label": "Download factsheet", "action": "download", "url": "https://…pdf" },
+    { "label": "View fund page", "action": "open", "url": "https://www.axismf.com/mutual-funds/..." },
     { "label": "Talk to an advisor", "action": "handoff", "url": "" }
   ],
   "intent": "information",
@@ -89,6 +116,13 @@ Response:
 | `channel` | `web` \| `whatsapp` \| `email` |
 | `page` | optional current-page context (e.g. `KYC`) |
 
+**CTA URLs** are only kept when they are real fund-house links retrieved from
+the knowledge base; invented/hallucinated URLs are stripped to in-app actions.
+**Deterministic intents** handled without the model: a hand-off request runs
+`handoff_to_advisor`; "complete KYC" runs `request_kyc` (queued, status
+"In progress" — never auto-verified); "email me this" sends a live SES summary
+to a signed-in user's address.
+
 ---
 
 ## POST /webhooks/whatsapp
@@ -104,7 +138,7 @@ Simulates an inbound email (SES receipt rule → S3). Runs the agent and replies
 via `send_email`.
 
 ```json
-{ "from": "priya@example.com", "subject": "KYC", "body": "Explain the KYC process" }
+{ "from": "investor2@example.com", "subject": "KYC", "body": "Explain the KYC process" }
 ```
 
 ---

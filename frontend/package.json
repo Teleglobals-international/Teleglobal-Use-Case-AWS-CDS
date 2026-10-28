@@ -1,7 +1,7 @@
 {
-  "name": "axis-mf-assistant-frontend",
+  "name": "mf-assistant-frontend",
   "version": "0.1.0",
-  "description": "Node.js (Express) frontend for the Axis AMC MF Investor Assistant - unified search + chat UI.",
+  "description": "Node.js (Express) frontend for the MF Investor Assistant - unified search + chat UI.",
   "type": "module",
   "main": "server.js",
   "scripts": {

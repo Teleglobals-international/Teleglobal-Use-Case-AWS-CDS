@@ -44,10 +44,25 @@ class Memory:
         return _seed_profiles().get(user_id)
 
     def get_profile(self, user_id: str) -> dict[str, Any]:
+        # Cognito is the source of truth for registered users when enabled.
+        from . import auth  # local import to avoid a cycle
+        if auth.cognito_enabled() and user_id not in _seed_profiles() and "@" in user_id:
+            try:
+                if auth.user_exists(user_id):
+                    return auth.get_profile(user_id)
+            except Exception:  # noqa: BLE001 - fall back to local
+                pass
         profile = self._lookup(user_id) or _seed_profiles()["guest"]
         return profile | {"user_id": user_id}
 
     def exists(self, user_id: str) -> bool:
+        from . import auth  # local import to avoid a cycle
+        if auth.cognito_enabled() and "@" in user_id:
+            try:
+                if auth.user_exists(user_id):
+                    return True
+            except Exception:  # noqa: BLE001
+                pass
         return self._lookup(user_id) is not None
 
     def register(self, user_id: str, profile: dict[str, Any]) -> dict[str, Any]:
@@ -59,8 +74,17 @@ class Memory:
         return self.get_profile(user_id)
 
     def update_profile(self, user_id: str, changes: dict[str, Any]) -> dict[str, Any]:
-        """Patch an investor profile (seed profiles are copied into the runtime
-        store on first edit so the on-disk seed data stays immutable)."""
+        """Patch an investor profile. For Cognito users, persist KYC status back
+        to the user pool; otherwise update the in-memory/seed-copy store."""
+        from . import auth  # local import to avoid a cycle
+        if auth.cognito_enabled() and "@" in user_id and user_id not in _seed_profiles():
+            try:
+                if auth.user_exists(user_id):
+                    if "kyc_status" in changes:
+                        auth.set_kyc_status(user_id, changes["kyc_status"])
+                    return auth.get_profile(user_id)
+            except Exception:  # noqa: BLE001 - fall back to local
+                pass
         with self._lock:
             if user_id not in self._registered:
                 base = _seed_profiles().get(user_id)

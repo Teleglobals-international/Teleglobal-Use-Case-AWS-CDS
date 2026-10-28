@@ -1,7 +1,53 @@
-# Release Notes — Axis AMC MF Investor Assistant
+# Release Notes — Mutual Fund Investor Assistant
+# Release Notes — Mutual Fund Investor Assistant
 
 All notable changes to this project are documented here.
 Dates are in YYYY-MM-DD. This project follows a simple, human-readable changelog.
+
+---
+
+## [0.3.0] — 2026-10-28
+
+Real AWS messaging + identity. Focus: live SES email, Cognito auth, a realistic
+KYC flow, and reachable fund links.
+
+### Added
+- **Amazon Cognito authentication.** `auth.py` + endpoints `/api/register`,
+  `/api/confirm`, `/api/login`, `/api/forgot-password`, `/api/reset-password`.
+  Email + password sign-in, 6-digit email-code confirmation, and forgot/reset
+  password. Investor profile and KYC status stored as Cognito attributes
+  (persist across restarts). In-memory fallback when Cognito is not configured;
+  seed demo accounts remain password-less.
+- **Live outbound email via Amazon SES** (`sesv2:SendEmail`) as the default
+  (`SIMULATE_CHANNELS=false`). Real sends return a `MessageId`; failures are
+  recorded with the error (not silently simulated).
+- **"Email me this" → grounded conversation summary.** The assistant retrieves
+  the relevant fund facts from the knowledge base and has Bedrock write a
+  concise email with the real scheme details, then sends it via SES to the
+  signed-in user.
+- **Frontend auth modal** with password, email-code confirmation step, and
+  forgot/reset-password flows (auto-login after confirm/reset).
+- **IAM permissions by feature** documented in `docs/ARCHITECTURE.md`.
+
+### Changed
+- **KYC is now a queued request, not instant verification.** `request_kyc`
+  raises a request, sets status "In progress", alerts the ops team, and tells
+  the investor the team will reach out. The model is instructed never to claim
+  KYC is verified. (`get_service_status` reports the real "In progress" state.)
+- **Restored real, reachability-checked fund-house URLs** for CTAs (fund pages,
+  SID PDF, FAQ, knowledge-centre, category listings) — all verified 200 OK.
+- Tool calls for user-scoped actions always use the authenticated `user_id`
+  (the model's id claim is ignored) — correctness + cross-user data safety.
+
+### Fixed
+- **Raw/partial JSON leaking into chat.** When the model emitted truncated or
+  malformed JSON (e.g. a streamed `{"answer": "...` preamble), the UI showed raw
+  JSON with literal `\n\n`. Added a recovery parser that extracts the answer
+  text, and a prompt rule forbidding tool-call preamble.
+- **Login/register "Password is required" failure** — the frontend modal lacked
+  password fields after the backend moved to Cognito; added them.
+- **Confirm/forgot/reset 404 through the frontend** — the Node proxy didn't
+  forward the new auth routes; added them to `server.js`.
 
 ---
 
@@ -35,15 +81,16 @@ sourcing of confidential data.
   collapsible blocks).
 - **Confidential-data documentation.** README, `docs/ARCHITECTURE.md` (§5) and
   `docs/FLOW.md` now state that KYC/identity/transaction data is synthetic in
-  the demo and, in production, comes from **DigiLocker** (identity/KYC, consent
-  based) and **Axis Bank APIs** (SIP/redemption/folio). Raw PAN/Aadhaar are
-  never stored by this service. Code carries matching `PRODUCTION NOTE`s.
+  the demo and, in production, comes from an **identity/KYC provider**
+  (identity/KYC, consent based) and the **fund house transaction APIs**
+  (SIP/redemption/folio). Raw PAN/Aadhaar are never stored by this service. Code
+  carries matching `PRODUCTION NOTE`s.
 
 ### Changed
-- **CTA links point to the real Axis MF website.** Replaced placeholder
-  `docs.axismf.example` URLs with verified `axismf.com` fund pages / documents.
-  The backend only allows navigable CTA URLs that were actually retrieved from
-  the knowledge base; invented/hallucinated URLs are stripped to in-app actions.
+- **CTA links point to the configured fund-house website.** Replaced placeholder
+  URLs with fund-house fund pages / documents. The backend only allows navigable
+  CTA URLs that were actually retrieved from the knowledge base;
+  invented/hallucinated URLs are stripped to in-app actions.
 - **Advisor CTA never navigates.** "Talk to an advisor" always triggers the
   in-app hand-off (no more 404 on an invented advisor page).
 - **Tool identity is enforced server-side.** Every user-scoped tool call
@@ -83,8 +130,8 @@ sourcing of confidential data.
 ## [0.1.0] — 2026-10-26
 
 Initial reference implementation of the Mutual Fund Investor Assistant
-(agentic WhatsApp + Email + Web self-service on AWS), per the Axis AMC
-Search + Chatbot PRD and the CDS reference architecture.
+(agentic WhatsApp + Email + Web self-service on AWS), per a Search + Chatbot PRD
+and the CDS reference architecture.
 
 ### Added
 - **Python FastAPI backend** implementing the AgentCore pattern:
@@ -95,7 +142,7 @@ Search + Chatbot PRD and the CDS reference architecture.
   - Tools: `search_fund_docs`, `send_whatsapp`, `send_email`,
     `get_service_status`, `handoff_to_advisor`.
   - Knowledge base retrieval (Bedrock Knowledge Base with local-corpus
-    fallback) over synthetic Axis MF factsheets, SIDs and FAQs.
+    fallback) over synthetic fund factsheets, SIDs and FAQs.
 - **Node.js (Express) frontend** — unified search bar, AI results + chat
   window, personalised homepage, intent-based CTAs, agent-activity panel;
   proxies all API calls to the backend so credentials never reach the browser.

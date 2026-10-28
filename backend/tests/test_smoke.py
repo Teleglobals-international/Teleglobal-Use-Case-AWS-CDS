@@ -10,6 +10,10 @@ Run:  python -m pytest -q     (or)    python tests/test_smoke.py
 import os
 import sys
 
+# Force local simulation so the offline test suite never sends real email/SMS,
+# even when the app defaults to live channels. Must be set before app imports.
+os.environ["SIMULATE_CHANNELS"] = "true"
+
 # Make the `app` package importable when run directly.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

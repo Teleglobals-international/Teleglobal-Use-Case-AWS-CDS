@@ -69,7 +69,7 @@ def _record(kind: str, payload: dict[str, Any], simulated: bool) -> dict[str, An
 # Tool implementations
 # --------------------------------------------------------------------------- #
 def search_fund_docs(query: str, top_k: int = 3) -> dict[str, Any]:
-    """Semantic retrieval over Axis MF factsheets, SIDs and FAQs."""
+    """Semantic retrieval over fund factsheets, SIDs and FAQs."""
     results = _kb_search(query, top_k=top_k)
     return {"query": query, "results": results, "count": len(results)}
 
@@ -124,10 +124,23 @@ def send_email(to: str, subject: str, body: str, attachment_url: str | None = No
                 },
                 **({"ConfigurationSetName": s.SES_CONFIGURATION_SET} if s.SES_CONFIGURATION_SET else {}),
             )
-            return _record("email", {**payload, "message_id": resp.get("MessageId")}, simulated=False)
+            message_id = resp.get("MessageId")
+            logger.info("SES send OK to %s (MessageId=%s)", to, message_id)
+            return _record(
+                "email",
+                {**payload, "from": s.SES_FROM_EMAIL, "message_id": message_id, "delivery": "sent"},
+                simulated=False,
+            )
         except Exception as exc:  # noqa: BLE001
-            logger.warning("SES send failed (%s); simulating.", exc)
-    return _record("email", payload, simulated=True)
+            # In live mode, surface the real failure instead of silently
+            # pretending it was simulated — the error is visible in the OUTBOX.
+            logger.error("SES send FAILED to %s: %s", to, exc)
+            return _record(
+                "email",
+                {**payload, "from": s.SES_FROM_EMAIL, "delivery": "failed", "error": str(exc)},
+                simulated=False,
+            )
+    return _record("email", {**payload, "delivery": "simulated"}, simulated=True)
 
 
 def get_service_status(user_id: str, service: str) -> dict[str, Any]:
@@ -139,9 +152,10 @@ def get_service_status(user_id: str, service: str) -> dict[str, Any]:
     PRODUCTION NOTE (confidential investor data):
       In production this must NOT use synthetic data. Confidential details are
       sourced from authoritative systems only:
-        - KYC / identity (PAN, Aadhaar, address proof): fetched from DigiLocker
-          via its consent-based Issued-Documents / e-KYC APIs (CKYC/KRA).
-        - SIP / redemption / folio: Axis Bank / Axis AMC transaction APIs.
+        - KYC / identity (PAN, Aadhaar, address proof): fetched from a
+          consent-based identity/KYC provider (e.g. a government-backed document
+          wallet or KRA) via its e-KYC / issued-documents APIs.
+        - SIP / redemption / folio: the fund house transaction APIs.
       No PII is stored locally; the assistant only receives the user-consented
       verification result. See docs/ARCHITECTURE.md ("Confidential data sources").
     """
@@ -153,7 +167,8 @@ def get_service_status(user_id: str, service: str) -> dict[str, Any]:
         status = profile.get("kyc_status", "Unknown")
         detail = {
             "Verified": "Your KYC is verified. You're all set to invest.",
-            "Pending": "Your KYC is pending. Complete it to start investing.",
+            "Pending": "Your KYC is pending. Raise a request and our team will complete it.",
+            "In progress": "Your KYC request is in progress; our verification team will reach out shortly.",
             "Under review": "Your KYC is under review; this usually takes 1-2 working days.",
         }.get(status, "KYC status is not available for your account.")
         return {"user_id": user_id, "service": "kyc", "status": status, "detail": detail}
@@ -161,7 +176,7 @@ def get_service_status(user_id: str, service: str) -> dict[str, Any]:
     synthetic = {
         "sip": {
             "status": "Active",
-            "detail": "Monthly SIP of Rs 5,000 in Axis Bluechip Fund, next debit on the 5th.",
+            "detail": "Monthly SIP of Rs 5,000 in the Large Cap Fund, next debit on the 5th.",
         },
         "redemption": {
             "status": "Processed",
@@ -172,20 +187,19 @@ def get_service_status(user_id: str, service: str) -> dict[str, Any]:
     return {"user_id": user_id, "service": service, **info}
 
 
-def complete_kyc(user_id: str) -> dict[str, Any]:
-    """Complete (demo) KYC verification for the logged-in investor.
+def request_kyc(user_id: str) -> dict[str, Any]:
+    """Raise a KYC request for the logged-in investor into the processing queue.
 
-    Marks the profile's kyc_status as Verified and returns a definitive result,
-    so the assistant can confirm completion instead of looping on 'are you
-    ready?'. Guests (not logged in) cannot complete KYC.
+    KYC cannot be self-verified instantly: it requires document verification by
+    the identity/KYC team. So this records a request, marks the profile
+    'In progress', alerts the ops team, and tells the investor the team will
+    reach out. Status becomes 'Verified' only after the team processes it.
 
     PRODUCTION NOTE (confidential investor data):
-      This demo simply flips an in-memory flag. In production, KYC completion is
-      a consent-driven DigiLocker flow: the investor authenticates with
-      DigiLocker, consents to share PAN + Aadhaar (and address proof), and the
-      verified result is returned via DigiLocker's e-KYC / Issued-Documents APIs
-      and persisted through Axis Bank's CKYC/KRA integration. We never collect or
-      store raw PAN/Aadhaar numbers in this service.
+      In production this request routes to a consent-driven e-KYC flow with an
+      identity/KYC provider (PAN + Aadhaar via a document wallet / KRA). The
+      assistant never collects or stores raw PAN/Aadhaar numbers; it only
+      receives the final verification outcome from the provider.
     """
     from .memory import get_memory  # local import to avoid a cycle
 
@@ -194,26 +208,45 @@ def complete_kyc(user_id: str) -> dict[str, Any]:
         return {
             "user_id": user_id,
             "status": "login_required",
-            "detail": "Please log in or register before completing KYC.",
+            "detail": "Please log in or register before requesting KYC.",
         }
 
     current = mem.get_profile(user_id).get("kyc_status")
     if current == "Verified":
         return {"user_id": user_id, "status": "Verified", "already": True,
                 "detail": "Your KYC is already verified."}
+    if current == "In progress":
+        return {"user_id": user_id, "status": "In progress", "already": True,
+                "detail": "Your KYC request is already in progress; our team will reach out shortly."}
 
     ref = f"KYC-{uuid.uuid4().hex[:8].upper()}"
-    mem.update_profile(user_id, {"kyc_status": "Verified"})
+    mem.update_profile(user_id, {"kyc_status": "In progress"})
+
+    # Alert the KYC/ops team (real email via SES in live mode).
+    s = get_settings()
+    send_email(
+        to=s.ADVISOR_ALERT_EMAIL,
+        subject=f"[KYC request] {ref} - {user_id}",
+        body=(
+            f"A new KYC verification request has been queued.\n\n"
+            f"Investor: {user_id}\nReference: {ref}\nStatus: In progress\n\n"
+            f"Please initiate the e-KYC / document verification for this investor."
+        ),
+    )
     return _record(
         "kyc",
         {
             "user_id": user_id,
-            "status": "Verified",
+            "status": "In progress",
             "reference": ref,
-            "detail": "KYC verified via e-KYC (PAN + Aadhaar). You can now invest.",
+            "detail": "KYC request queued. Our verification team will reach out to complete your e-KYC.",
         },
         simulated=True,
     )
+
+
+# Backwards-compatible alias (the agent used to call complete_kyc).
+complete_kyc = request_kyc
 
 
 def handoff_to_advisor(user_id: str, reason: str, summary: str) -> dict[str, Any]:

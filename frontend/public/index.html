@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Axis MF - Investor Assistant</title>
+    <title>MF Investor Assistant</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <header class="topbar">
       <div class="brand">
-        <span class="logo">AXIS</span>
-        <span class="brand-name">Mutual Fund</span>
+        <span class="logo">MF</span>
+        <span class="brand-name">Investor Assistant</span>
       </div>
       <div class="auth-area">
         <span id="auth-status" class="auth-status">Browsing as Guest</span>
@@ -29,13 +29,20 @@
         </div>
 
         <form id="login-form" class="modal-form" data-panel="login">
-          <h2 id="modal-title">Login to Axis MF</h2>
-          <label>Registered mobile or email
-            <input id="login-id" type="text" placeholder="+91 90000 00001 or you@email.com" autocomplete="username" required />
+          <h2 id="modal-title">Login</h2>
+          <label>Email
+            <input id="login-id" type="text" placeholder="you@email.com" autocomplete="username" required />
           </label>
-          <p class="demo-hint">Demo accounts: <code>+919000000001</code> (Ravi) · <code>priya@example.com</code> (Priya)</p>
+          <label>Password
+            <input id="login-password" type="password" placeholder="Your password" autocomplete="current-password" />
+          </label>
+          <p class="demo-hint">
+            Demo accounts (no password): <code>+919000000001</code> ·
+            <code>investor2@example.com</code>
+          </p>
           <div class="modal-error" id="login-error" hidden></div>
           <button class="modal-submit" type="submit">Login</button>
+          <p class="modal-link-row"><a href="#" id="forgot-link">Forgot password?</a></p>
         </form>
 
         <form id="register-form" class="modal-form" data-panel="register" hidden>
@@ -43,8 +50,11 @@
           <label>Full name
             <input id="reg-name" type="text" placeholder="Your name" required />
           </label>
-          <label>Mobile or email
-            <input id="reg-id" type="text" placeholder="+91 98765 43210 or you@email.com" required />
+          <label>Email
+            <input id="reg-id" type="email" placeholder="you@email.com" required />
+          </label>
+          <label>Password
+            <input id="reg-password" type="password" placeholder="Min 8 chars, upper, lower & a number" autocomplete="new-password" />
           </label>
           <label>Preferred language
             <select id="reg-language">
@@ -68,7 +78,43 @@
             </select>
           </label>
           <div class="modal-error" id="register-error" hidden></div>
-          <button class="modal-submit" type="submit">Create account &amp; login</button>
+          <button class="modal-submit" type="submit">Create account</button>
+        </form>
+
+        <!-- Confirm sign-up code (shown after register when Cognito is on) -->
+        <form id="confirm-form" class="modal-form" data-panel="confirm" hidden>
+          <h2>Confirm your email</h2>
+          <p class="demo-hint" id="confirm-hint">We emailed a 6-digit code to your address.</p>
+          <label>Verification code
+            <input id="confirm-code" type="text" inputmode="numeric" placeholder="123456" autocomplete="one-time-code" />
+          </label>
+          <div class="modal-error" id="confirm-error" hidden></div>
+          <button class="modal-submit" type="submit">Confirm &amp; login</button>
+        </form>
+
+        <!-- Forgot password: request a reset code -->
+        <form id="forgot-form" class="modal-form" data-panel="forgot" hidden>
+          <h2>Reset your password</h2>
+          <p class="demo-hint">Enter your email and we'll send a reset code.</p>
+          <label>Email
+            <input id="forgot-id" type="email" placeholder="you@email.com" />
+          </label>
+          <div class="modal-error" id="forgot-error" hidden></div>
+          <button class="modal-submit" type="submit">Send reset code</button>
+        </form>
+
+        <!-- Reset password: enter code + new password -->
+        <form id="reset-form" class="modal-form" data-panel="reset" hidden>
+          <h2>Set a new password</h2>
+          <p class="demo-hint" id="reset-hint">Enter the code we emailed and your new password.</p>
+          <label>Reset code
+            <input id="reset-code" type="text" inputmode="numeric" placeholder="123456" />
+          </label>
+          <label>New password
+            <input id="reset-password" type="password" placeholder="Min 8 chars, upper, lower & a number" autocomplete="new-password" />
+          </label>
+          <div class="modal-error" id="reset-error" hidden></div>
+          <button class="modal-submit" type="submit">Reset password &amp; login</button>
         </form>
       </div>
     </div>
@@ -83,7 +129,7 @@
             type="text"
             autocomplete="off"
             placeholder="Search funds, SIPs, KYC, redemptions… (English or Hinglish)"
-            aria-label="Search Axis Mutual Fund"
+            aria-label="Search mutual funds"
           />
           <button type="submit" aria-label="Search">Ask</button>
         </form>
@@ -101,7 +147,7 @@
       <!-- Personalised homepage (recommendations + trending + quick actions) -->
       <section id="homepage" class="homepage">
         <div class="card">
-          <h2 id="greeting">Welcome to Axis MF</h2>
+          <h2 id="greeting">Welcome to the MF Assistant</h2>
           <div class="chips" id="trending"></div>
         </div>
         <div class="card" id="personalised-card" hidden>

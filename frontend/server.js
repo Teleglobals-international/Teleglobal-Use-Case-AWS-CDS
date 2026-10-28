@@ -1,5 +1,5 @@
 /**
- * Axis AMC - MF Investor Assistant frontend (Node.js + Express).
+ * MF Investor Assistant frontend (Node.js + Express).
  *
  * Serves the single-page search + chat UI (PRD: unified search bar, AI results
  * page, chat window, personalised homepage, intent-based CTAs) and proxies API
@@ -48,6 +48,9 @@ async function proxy(req, res, path, method = "GET") {
 app.get("/api/homepage", (req, res) => proxy(req, res, "/api/homepage"));
 app.post("/api/login", (req, res) => proxy(req, res, "/api/login", "POST"));
 app.post("/api/register", (req, res) => proxy(req, res, "/api/register", "POST"));
+app.post("/api/confirm", (req, res) => proxy(req, res, "/api/confirm", "POST"));
+app.post("/api/forgot-password", (req, res) => proxy(req, res, "/api/forgot-password", "POST"));
+app.post("/api/reset-password", (req, res) => proxy(req, res, "/api/reset-password", "POST"));
 app.post("/api/chat", (req, res) => proxy(req, res, "/api/chat", "POST"));
 app.get("/api/outbox", (req, res) => proxy(req, res, "/api/outbox"));
 app.post("/api/reset", (req, res) => proxy(req, res, "/api/reset", "POST"));
@@ -56,6 +59,6 @@ app.get("/api/health", (req, res) => proxy(req, res, "/health"));
 app.get("*", (_req, res) => res.sendFile(join(__dirname, "public", "index.html")));
 
 app.listen(PORT, () => {
-  console.log(`\nAxis MF Assistant frontend running:  http://localhost:${PORT}`);
+  console.log(`\nMF Assistant frontend running:  http://localhost:${PORT}`);
   console.log(`Proxying API to backend:             ${BACKEND_URL}\n`);
 });

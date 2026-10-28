@@ -36,19 +36,29 @@ class Settings:
     # --- Bedrock Knowledge Base (optional, falls back to local KB) --------
     KNOWLEDGE_BASE_ID: str = os.getenv("KNOWLEDGE_BASE_ID", "")
 
+    # --- Amazon Cognito (optional; falls back to in-memory auth if unset) --
+    COGNITO_USER_POOL_ID: str = os.getenv("COGNITO_USER_POOL_ID", "")
+    COGNITO_CLIENT_ID: str = os.getenv("COGNITO_CLIENT_ID", "")
+
+    @property
+    def cognito_enabled(self) -> bool:
+        return bool(self.COGNITO_USER_POOL_ID and self.COGNITO_CLIENT_ID)
+
     # --- Messaging channels (optional, falls back to local simulation) ----
-    SES_FROM_EMAIL: str = os.getenv("SES_FROM_EMAIL", "assistant@axismf.example")
+    SES_FROM_EMAIL: str = os.getenv("SES_FROM_EMAIL", "support@teleglobals.com")
     SES_CONFIGURATION_SET: str = os.getenv("SES_CONFIGURATION_SET", "")
     WHATSAPP_PHONE_NUMBER_ID: str = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
-    ADVISOR_ALERT_EMAIL: str = os.getenv("ADVISOR_ALERT_EMAIL", "advisor@axismf.example")
+    ADVISOR_ALERT_EMAIL: str = os.getenv("ADVISOR_ALERT_EMAIL", "support@teleglobals.com")
 
     # --- DynamoDB (optional) ---------------------------------------------
     HANDOFF_TABLE: str = os.getenv("HANDOFF_TABLE", "mf-advisor-handoff-queue")
 
     # --- Behaviour flags --------------------------------------------------
-    # When true, external side-effects (SES/WhatsApp/DynamoDB) are simulated
-    # locally instead of calling AWS. Auto-enabled when resources are absent.
-    SIMULATE_CHANNELS: bool = os.getenv("SIMULATE_CHANNELS", "true").lower() == "true"
+    # When true, external side-effects (WhatsApp/DynamoDB) are simulated locally
+    # instead of calling AWS. Default is FALSE so email goes out live via
+    # Amazon SES (sesv2) at runtime. Set SIMULATE_CHANNELS=true to force the
+    # local simulation fallback (e.g. when developing without AWS access).
+    SIMULATE_CHANNELS: bool = os.getenv("SIMULATE_CHANNELS", "false").lower() == "true"
 
     @property
     def has_aws_credentials(self) -> bool:

@@ -60,3 +60,8 @@ def socialmessaging() -> Any:
 @lru_cache
 def dynamodb() -> Any:
     return _session().resource("dynamodb", config=_BOTO_CONFIG)
+
+
+@lru_cache
+def cognito_idp() -> Any:
+    return _session().client("cognito-idp", config=_BOTO_CONFIG)

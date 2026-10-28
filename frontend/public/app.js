@@ -1,4 +1,4 @@
-/* Axis MF Investor Assistant - frontend logic (vanilla JS, no build step). */
+/* MF Investor Assistant - frontend logic (vanilla JS, no build step). */
 
 const $ = (sel) => document.querySelector(sel);
 const state = { userId: "guest", channel: "web" };
@@ -11,9 +11,19 @@ const el = {
   modalClose: $("#modal-close"),
   loginForm: $("#login-form"),
   registerForm: $("#register-form"),
+  confirmForm: $("#confirm-form"),
+  forgotForm: $("#forgot-form"),
+  resetForm: $("#reset-form"),
   loginId: $("#login-id"),
+  loginPassword: $("#login-password"),
   loginError: $("#login-error"),
   registerError: $("#register-error"),
+  confirmError: $("#confirm-error"),
+  forgotError: $("#forgot-error"),
+  resetError: $("#reset-error"),
+  confirmHint: $("#confirm-hint"),
+  resetHint: $("#reset-hint"),
+  forgotLink: $("#forgot-link"),
   pageContext: $("#page-context"),
   searchForm: $("#search-form"),
   searchInput: $("#search-input"),
@@ -141,9 +151,9 @@ function isHandoff(c) {
   return /advisor|handoff|hand-off|human|agent|representative|talk to/.test(hay);
 }
 
-/* Treat a URL as navigable only if it is an official Axis MF link. The backend
+/* Treat a URL as navigable only if it is a fund-house domain link. The backend
    already strips invented/hallucinated URLs, so by the time a CTA reaches the
-   browser with a non-empty url it is a verified axismf.com page/PDF. */
+   browser with a non-empty url it is a verified fund page/PDF. */
 function isUsableUrl(url) {
   if (!url || url.length < 8) return false;
   return /^https:\/\/([a-z0-9-]+\.)*axismf\.com\//i.test(url);
@@ -274,21 +284,40 @@ el.chatForm.addEventListener("submit", (e) => {
 });
 
 /* ---------- Auth / login modal ---------- */
+// Pending signup details, used to jump to the confirm step and auto-login.
+const pending = { email: null, password: null };
+
+const PANELS = {
+  login: el.loginForm,
+  register: el.registerForm,
+  confirm: el.confirmForm,
+  forgot: el.forgotForm,
+  reset: el.resetForm,
+};
+
 function openModal(tab = "login") {
   el.authModal.hidden = false;
   switchTab(tab);
 }
 function closeModal() {
   el.authModal.hidden = true;
-  el.loginError.hidden = true;
-  el.registerError.hidden = true;
+  [el.loginError, el.registerError, el.confirmError, el.forgotError, el.resetError].forEach(
+    (e) => (e.hidden = true)
+  );
 }
 function switchTab(tab) {
+  // The two header tabs only reflect login/register; sub-steps keep register active.
+  const headerTab = tab === "login" ? "login" : "register";
   document.querySelectorAll(".modal-tab").forEach((t) =>
-    t.classList.toggle("active", t.dataset.tab === tab)
+    t.classList.toggle("active", t.dataset.tab === headerTab)
   );
-  el.loginForm.hidden = tab !== "login";
-  el.registerForm.hidden = tab !== "register";
+  Object.entries(PANELS).forEach(([name, form]) => {
+    if (form) form.hidden = name !== tab;
+  });
+}
+function showError(elError, message) {
+  elError.textContent = message;
+  elError.hidden = false;
 }
 
 async function setSession(profile) {
@@ -325,41 +354,122 @@ document.querySelectorAll(".modal-tab").forEach((t) =>
   t.addEventListener("click", () => switchTab(t.dataset.tab))
 );
 
+el.forgotLink.addEventListener("click", (e) => {
+  e.preventDefault();
+  $("#forgot-id").value = el.loginId.value.trim();
+  switchTab("forgot");
+});
+
+// Login
 el.loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   el.loginError.hidden = true;
+  const user_id = el.loginId.value.trim();
+  const password = el.loginPassword.value;
   try {
     const { profile } = await api("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: el.loginId.value.trim() }),
+      body: JSON.stringify({ user_id, password }),
     });
     await setSession(profile);
   } catch (err) {
-    el.loginError.textContent = err.message;
-    el.loginError.hidden = false;
+    showError(el.loginError, err.message);
   }
 });
 
+// Register -> either signed in (local) or needs email-code confirmation (Cognito)
 el.registerForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   el.registerError.hidden = true;
+  const user_id = $("#reg-id").value.trim();
+  const password = $("#reg-password").value;
   try {
-    const { profile } = await api("/api/register", {
+    const res = await api("/api/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: $("#reg-name").value.trim(),
-        user_id: $("#reg-id").value.trim(),
+        user_id,
+        password,
         language: $("#reg-language").value,
         risk_tolerance: $("#reg-risk").value,
         investment_goals: [$("#reg-goal").value],
       }),
     });
+    if (res.status === "confirmation_required") {
+      pending.email = user_id;
+      pending.password = password;
+      el.confirmHint.textContent = `We emailed a 6-digit code to ${user_id}.`;
+      switchTab("confirm");
+    } else {
+      await setSession(res.profile);
+    }
+  } catch (err) {
+    showError(el.registerError, err.message);
+  }
+});
+
+// Confirm sign-up code, then auto-login
+el.confirmForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  el.confirmError.hidden = true;
+  try {
+    await api("/api/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: pending.email, code: $("#confirm-code").value.trim() }),
+    });
+    // Auto-login with the password captured at registration.
+    const { profile } = await api("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: pending.email, password: pending.password }),
+    });
     await setSession(profile);
   } catch (err) {
-    el.registerError.textContent = err.message;
-    el.registerError.hidden = false;
+    showError(el.confirmError, err.message);
+  }
+});
+
+// Forgot password -> send reset code
+el.forgotForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  el.forgotError.hidden = true;
+  const user_id = $("#forgot-id").value.trim();
+  try {
+    await api("/api/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id }),
+    });
+    pending.email = user_id;
+    el.resetHint.textContent = `Enter the code we emailed to ${user_id} and your new password.`;
+    switchTab("reset");
+  } catch (err) {
+    showError(el.forgotError, err.message);
+  }
+});
+
+// Reset password with code -> auto-login
+el.resetForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  el.resetError.hidden = true;
+  const password = $("#reset-password").value;
+  try {
+    await api("/api/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: pending.email, code: $("#reset-code").value.trim(), password }),
+    });
+    const { profile } = await api("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: pending.email, password }),
+    });
+    await setSession(profile);
+  } catch (err) {
+    showError(el.resetError, err.message);
   }
 });
 

@@ -31,9 +31,9 @@ logger = logging.getLogger("mf_assistant.agent")
 
 MAX_TOOL_ITERATIONS = 5
 
-SYSTEM_PROMPT = f"""You are the Axis Mutual Fund Investor Assistant, a helpful,
+SYSTEM_PROMPT = f"""You are the Mutual Fund Investor Assistant, a helpful,
 accurate, multilingual (English + Hinglish) assistant for mutual fund investors
-across WhatsApp, Email and the Axis MF website/app.
+across WhatsApp, Email and the fund house website/app.
 
 {ADVISORY_POLICY}
 
@@ -49,7 +49,7 @@ Guidelines:
   exact "fund_url" or "pdf_url" values returned by the search_fund_docs tool for
   the fund you are discussing. If you do not have a real URL from the tool for a
   CTA, set its "url" to "" (empty string) and the app will handle it. Do not
-  construct links like https://www.axismf.com/talk-to-advisor.
+  construct links yourself (e.g. a made-up "talk-to-advisor" page).
 - For the advisor CTA, always use an empty url ("") so it opens the in-app
   hand-off, never a web page.
 - LOGIN: This app HAS a built-in login/register. If a Guest user asks about
@@ -61,12 +61,17 @@ Guidelines:
   short step, do not repeat the same login instructions across turns.
 - If the user is already signed in (their profile name is not "Guest Investor"),
   do NOT ask them to log in; use get_service_status directly.
-- KYC COMPLETION: This app can complete KYC itself via the complete_kyc tool.
-  When a signed-in user wants to complete/start/do their KYC, CALL complete_kyc
-  and confirm the result in ONE turn. Do NOT describe a multi-step "video KYC"
-  process, do NOT say you are "transferring to a specialist", and never ask
-  "are you ready?" repeatedly. If the result is login_required, offer the
-  "login"/"register" CTAs instead.
+- KYC: KYC is NOT verified instantly and you must NEVER claim it is verified.
+  When a signed-in user wants to complete/start/do their KYC, CALL request_kyc
+  (once) to raise a request into the queue, then tell them it's "in progress"
+  and that our verification team will reach out to complete the e-KYC. Do NOT
+  describe a "video KYC" walkthrough, do NOT say "transferring to a specialist",
+  and never ask "are you ready?" repeatedly. If the result is login_required,
+  offer the "login"/"register" CTAs instead.
+- EMAIL: A signed-in user can have any answer emailed to them. When relevant
+  (e.g. detailed fund info, SIP steps, a summary), offer a CTA with
+  action "email" and label "Email me this" and empty url. Do NOT claim you have
+  already emailed something unless the email tool result says so.
 - If the user explicitly wants a human, or asks for personalised advice you
   cannot give, call handoff_to_advisor.
 - Match the user's language (reply in Hinglish if they wrote Hinglish).
@@ -75,7 +80,9 @@ Guidelines:
 Respond ONLY with a single, flat JSON object of exactly this shape:
 {{"answer": "<markdown text for the user>", "ctas": [{{"label": "...", "action": "...", "url": "..."}}], "intent": "information|transaction|service|advice"}}
 The "answer" value must be plain human-readable text, NOT another JSON object.
-Do not nest JSON inside the answer. Do not wrap the response in code fences."""
+Do not nest JSON inside the answer. Do not wrap the response in code fences.
+Do NOT emit any preamble like "I'll search the knowledge base" — call the tool
+silently, then return ONLY the final, complete JSON object after the tool runs."""
 
 
 # --------------------------------------------------------------------------- #
@@ -95,7 +102,7 @@ def _tool_config() -> dict[str, Any]:
         "tools": [
             spec(
                 "search_fund_docs",
-                "Semantic search over Axis MF factsheets, SIDs and FAQs. Use for any fund or service question. Each result includes a real 'fund_url' (fund page on axismf.com) and 'pdf_url' (SID/factsheet) you MUST reuse verbatim for CTA links.",
+                "Semantic search over fund factsheets, SIDs and FAQs. Use for any fund or service question. Each result includes a 'fund_url' (fund page) and 'pdf_url' (SID/factsheet) you MUST reuse verbatim for CTA links.",
                 {
                     "query": {"type": "string", "description": "The search query"},
                     "top_k": {"type": "integer", "description": "Number of results (default 3)"},
@@ -112,8 +119,8 @@ def _tool_config() -> dict[str, Any]:
                 ["user_id", "service"],
             ),
             spec(
-                "complete_kyc",
-                "Complete (verify) the logged-in user's KYC. Call this when the user wants to complete/do/start their KYC. Returns a definitive result; do not keep asking if they are ready.",
+                "request_kyc",
+                "Raise a KYC verification request into the queue for the logged-in user. Call this when the user wants to complete/do/start their KYC. KYC is NOT verified instantly — the team processes it; status becomes 'In progress'. Do not claim the KYC is verified.",
                 {"user_id": {"type": "string"}},
                 ["user_id"],
             ),
@@ -134,13 +141,13 @@ def _tool_config() -> dict[str, Any]:
 _TOOL_IMPLS = {
     "search_fund_docs": lambda a: toolbox.search_fund_docs(a["query"], int(a.get("top_k", 3))),
     "get_service_status": lambda a: toolbox.get_service_status(a["user_id"], a["service"]),
-    "complete_kyc": lambda a: toolbox.complete_kyc(a["user_id"]),
+    "request_kyc": lambda a: toolbox.request_kyc(a["user_id"]),
     "handoff_to_advisor": lambda a: toolbox.handoff_to_advisor(a["user_id"], a["reason"], a["summary"]),
 }
 
 # Tools that operate on a specific investor; their user_id is always forced to
 # the authenticated caller, regardless of what the model supplies.
-_USER_SCOPED_TOOLS = {"get_service_status", "complete_kyc", "handoff_to_advisor"}
+_USER_SCOPED_TOOLS = {"get_service_status", "request_kyc", "handoff_to_advisor"}
 
 
 def _profile_context(profile: dict[str, Any], channel: str, page: str | None) -> str:
@@ -156,6 +163,44 @@ def _profile_context(profile: dict[str, Any], channel: str, page: str | None) ->
     if page:
         lines.append(f"Current page/context: {page}")
     return "User context:\n" + "\n".join(lines)
+
+
+def _recover_answer_text(text: str) -> str:
+    """Best-effort extraction of the human answer from malformed/truncated JSON.
+
+    Handles cases like:  {"answer": "I'll search ...\n\n   (no closing brace)
+    Falls back to stripping obvious JSON scaffolding so the user never sees raw
+    JSON like '{"answer": "...'.
+    """
+    t = text.strip()
+    if t.startswith("```"):
+        t = t.strip("`")
+        t = t.split("\n", 1)[-1] if "\n" in t else t
+        t = t.strip()
+
+    # If it looks like a JSON object with an "answer" field, pull that value.
+    m = re.search(r'"answer"\s*:\s*"', t)
+    if m:
+        rest = t[m.end():]
+        # Read until an unescaped closing quote (or end of string if truncated).
+        out, i = [], 0
+        while i < len(rest):
+            ch = rest[i]
+            if ch == "\\" and i + 1 < len(rest):
+                nxt = rest[i + 1]
+                out.append({"n": "\n", "t": "\t", "r": "\r", '"': '"', "\\": "\\", "/": "/"}.get(nxt, nxt))
+                i += 2
+                continue
+            if ch == '"':
+                break
+            out.append(ch)
+            i += 1
+        recovered = "".join(out).strip()
+        if recovered:
+            return recovered
+
+    # Not recoverable as JSON — strip any leftover braces/keys defensively.
+    return t
 
 
 def _parse_model_json(text: str) -> dict[str, Any]:
@@ -174,7 +219,12 @@ def _parse_model_json(text: str) -> dict[str, Any]:
         except json.JSONDecodeError:
             parsed = None
     if parsed is None or not isinstance(parsed, dict):
-        return {"answer": text, "ctas": [], "intent": "information"}
+        # The model emitted something that looks like JSON but is malformed or
+        # truncated (e.g. a streamed opening "{\"answer\": \"...\"" with no
+        # closing brace). Rather than dump raw JSON to the user, try to recover
+        # the human-readable answer string.
+        recovered = _recover_answer_text(text)
+        return {"answer": recovered, "ctas": [], "intent": "information"}
 
     # The model sometimes nests the real JSON payload inside the "answer"
     # field as a string. Unwrap one level if detected.
@@ -213,6 +263,8 @@ def run_agent(user_id: str, message: str, channel: str = "web", page: str | None
         result = _do_handoff(user_id, safe_message, profile)
     elif _wants_kyc_completion(safe_message):
         result = _do_complete_kyc(user_id, profile)
+    elif _wants_email(safe_message):
+        result = _do_email_this(user_id, profile, history)
     else:
         try:
             result = _run_bedrock_loop(user_id, safe_message, context, history)
@@ -235,7 +287,7 @@ def run_agent(user_id: str, message: str, channel: str = "web", page: str | None
 
 
 _HANDOFF_RE = re.compile(r"advisor|handoff|hand-off|human|representative|talk to", re.I)
-# Only links on the official Axis MF domains are allowed to be navigable.
+# Only links on the configured fund-house domain are allowed to be navigable.
 _ALLOWED_URL_RE = re.compile(r"^https://([a-z0-9-]+\.)*axismf\.com/", re.I)
 
 
@@ -257,9 +309,9 @@ def _kb_url_whitelist() -> frozenset[str]:
 
 
 def _ensure_source_cta(result: dict[str, Any]) -> None:
-    """If no CTA carries a real link, attach a "Learn more on axismf.com" CTA
-    pointing at the top retrieved document's real page, so the user always has
-    a working source link (and never just dead in-app buttons)."""
+    """If no CTA carries a real link, attach a "Learn more" CTA pointing at the
+    top retrieved document's page, so the user always has a working source link
+    (and never just dead in-app buttons)."""
     ctas = result.get("ctas", [])
     if any(c.get("url") for c in ctas):
         return
@@ -267,7 +319,7 @@ def _ensure_source_cta(result: dict[str, Any]) -> None:
         for r in (t.get("output", {}).get("results") or []):
             url = r.get("fund_url") or r.get("pdf_url")
             if url:
-                ctas.append({"label": "Learn more on axismf.com", "action": "open", "url": url})
+                ctas.append({"label": "Learn more", "action": "open", "url": url})
                 result["ctas"] = ctas
                 return
 
@@ -290,7 +342,7 @@ def _sanitize_ctas(ctas: list[dict[str, Any]], allowed_urls: set[str]) -> list[d
 
     - Advisor/hand-off CTAs become in-app actions with no URL (so the client
       triggers handoff_to_advisor instead of navigating away).
-    - A URL is kept as a navigable link only if it is an official axismf.com
+    - A URL is kept as a navigable link only if it is a fund-house domain
       URL AND it was one of the real links we supplied from the knowledge base
       this turn. Anything else (invented/hallucinated) is dropped and the label
       becomes an in-app prompt the user can click to re-ask.
@@ -404,7 +456,7 @@ def _do_handoff(user_id: str, message: str, profile: dict[str, Any]) -> dict[str
     ticket_id = ticket.get("ticket_id", "your request")
     answer = (
         f"Sure — I've connected you with our advisory team. Your request "
-        f"(**{ticket_id}**) is queued and an Axis MF advisor will reach out to you "
+        f"(**{ticket_id}**) is queued and an advisor will reach out to you "
         f"shortly. Is there anything else I can help you with in the meantime?"
     )
     return {
@@ -439,41 +491,255 @@ def _wants_kyc_completion(message: str) -> bool:
 
 
 def _do_complete_kyc(user_id: str, profile: dict[str, Any]) -> dict[str, Any]:
-    """Deterministically complete (demo) KYC and confirm - no 'are you ready?' loop."""
-    out = toolbox.complete_kyc(user_id)
+    """Raise a KYC request into the queue and confirm - no instant self-verify."""
+    out = toolbox.request_kyc(user_id)
     status = out.get("status")
 
     if status == "login_required":
         answer = (
-            "To complete your KYC you'll need to be signed in. Please log in or "
-            "create an account, then I can verify your KYC instantly."
+            "To start your KYC you'll need to be signed in. Please log in or "
+            "create an account, then I can raise a KYC request for you."
         )
         ctas = [
             {"label": "Login", "action": "login", "url": ""},
             {"label": "Register", "action": "register", "url": ""},
         ]
-    elif out.get("already"):
+    elif status == "Verified" and out.get("already"):
         answer = "Good news — your KYC is already **Verified**. You're all set to invest."
         ctas = [
             {"label": "View our funds", "action": "open", "url": "https://www.axismf.com/mutual-funds"},
             {"label": "Start a SIP", "action": "ask", "url": ""},
         ]
+    elif status == "In progress" and out.get("already"):
+        ref = out.get("reference", "")
+        answer = (
+            "Your KYC request is already **in progress**. Our verification team "
+            "will reach out to you shortly to complete the e-KYC. You'll be able "
+            "to invest once it's verified."
+        )
+        ctas = [
+            {"label": "Check KYC status", "action": "ask", "url": ""},
+            {"label": "Talk to an advisor", "action": "handoff", "url": ""},
+        ]
     else:
         ref = out.get("reference", "")
         answer = (
-            f"Done! Your KYC is now **Verified** (ref **{ref}**) via e-KYC using "
-            f"PAN + Aadhaar. You can start investing right away."
+            f"Thanks — I've raised your KYC request (ref **{ref}**) and it's now "
+            f"**in progress**. Our verification team will reach out to you shortly "
+            f"to complete the e-KYC (PAN + Aadhaar). You'll be ready to invest once "
+            f"it's verified; I'll keep you posted."
         )
         ctas = [
-            {"label": "View our funds", "action": "open", "url": "https://www.axismf.com/mutual-funds"},
-            {"label": "Start a SIP", "action": "ask", "url": ""},
+            {"label": "Learn about mutual funds", "action": "ask", "url": ""},
+            {"label": "Talk to an advisor", "action": "handoff", "url": ""},
         ]
 
     return {
         "answer": answer,
         "ctas": ctas,
         "intent": "service",
-        "tool_trace": [{"tool": "complete_kyc", "input": {"user_id": user_id}, "output": out}],
+        "tool_trace": [{"tool": "request_kyc", "input": {"user_id": user_id}, "output": out}],
+    }
+
+
+_WANTS_EMAIL_RE = re.compile(
+    r"\b("
+    r"email (me|this|that|it)|e-?mail (me|this|that|it)"
+    r"|send (me )?(this|that|it|the (details|info|summary)) (on|via|to|by|over)? ?e?-?mail"
+    r"|(share|send) (this|that|it|the above) (on|via|by|to|over) e?-?mail"
+    r"|mail (me|this|that|it)"
+    r")\b",
+    re.I,
+)
+
+
+def _wants_email(message: str) -> bool:
+    return bool(_WANTS_EMAIL_RE.search(message or ""))
+
+
+def _resolve_email(user_id: str, profile: dict[str, Any]) -> str | None:
+    """Determine the recipient email for the signed-in user."""
+    if "@" in (user_id or ""):
+        return user_id
+    email = profile.get("email")
+    if email and "@" in email:
+        return email
+    return None
+
+
+# Turns that are NOT worth emailing: promises to email, pure KYC/login/hand-off
+# nudges, or the email-confirmation itself. We skip these and email the last
+# turn that actually contains useful information.
+_FILLER_RE = re.compile(
+    r"i'?ll send you an email"
+    r"|i'?ve sent the details"
+    r"|email with (comprehensive|detailed)"
+    r"|would you like to complete your kyc"
+    r"|to email this to you"
+    r"|connected you with our advisory",
+    re.I,
+)
+
+
+def _strip_disclaimer(text: str) -> str:
+    idx = text.find("\n\n---")
+    return (text[:idx] if idx != -1 else text).strip()
+
+
+def _last_assistant_answer(history: list[dict[str, str]]) -> str | None:
+    """Pick the most recent SUBSTANTIVE assistant turn to email.
+
+    Skips filler turns (promises to email, KYC/login nudges, confirmations) and
+    very short replies. Falls back to the most recent non-empty answer if every
+    prior turn looks like filler.
+    """
+    assistant_turns = [
+        t["content"] for t in history
+        if t.get("role") == "assistant" and t.get("content", "").strip()
+    ]
+    if not assistant_turns:
+        return None
+    for content in reversed(assistant_turns):
+        core = _strip_disclaimer(content)
+        if len(core) >= 60 and not _FILLER_RE.search(core):
+            return content
+    # Everything looked like filler — return the most recent non-empty turn.
+    return assistant_turns[-1]
+
+
+_SUMMARY_SYSTEM = (
+    "You write a concise, friendly email for a mutual fund investor summarising "
+    "a chat with the assistant. The email MUST include the concrete FUND DETAILS "
+    "from the 'Fund facts' provided (scheme type, objective, benchmark, minimum "
+    "SIP, lock-in, exit load, risk level) for the fund(s) the investor asked "
+    "about — quote the real figures, do not invent any. Structure: a one-line "
+    "greeting; a short line on what they asked; a 'Fund details' section with "
+    "bullet points of the real facts; any relevant next step (e.g. completing "
+    "KYC) if it came up. Plain text only (no markdown headers, no JSON). Do NOT "
+    "give personalised investment advice. Keep it under ~280 words and end with "
+    "a short sign-off from 'MF Investor Assistant'."
+)
+
+
+def _email_fund_facts(history: list[dict[str, str]]) -> str:
+    """Retrieve grounded fund facts from the knowledge base for the funds/topics
+    discussed, so the email contains authoritative details (not just a recap)."""
+    investor_text = " ".join(
+        t.get("content", "") for t in history if t.get("role") == "user"
+    )
+    if not investor_text.strip():
+        return ""
+    hits = search_fund_docs(investor_text, top_k=3)
+    blocks = []
+    for h in hits:
+        blocks.append(
+            f"- {h['fund']} ({h['category']}): {h['snippet']}\n"
+            f"  Reference: {h.get('fund_url') or h.get('pdf_url', '')}"
+        )
+    return "\n".join(blocks)
+
+
+def _summarise_conversation(history: list[dict[str, str]], profile: dict[str, Any]) -> str:
+    """Build the email body: a friendly summary grounded in real fund facts
+    retrieved from the knowledge base.
+
+    Falls back to the fund facts (or the last substantive answer) if the model
+    call fails, so the email is always sent with useful content.
+    """
+    transcript_lines = []
+    for t in history:
+        role = "Investor" if t.get("role") == "user" else "Assistant"
+        content = _strip_disclaimer(t.get("content", "")).strip()
+        if content:
+            transcript_lines.append(f"{role}: {content}")
+    transcript = "\n".join(transcript_lines[-20:])  # cap context size
+    fund_facts = _email_fund_facts(history)
+    name = profile.get("name", "there")
+
+    try:
+        resp = bedrock_runtime().converse(
+            modelId=get_settings().LLM_MODEL,
+            system=[{"text": _SUMMARY_SYSTEM}],
+            messages=[{
+                "role": "user",
+                "content": [{"text": (
+                    f"Investor name: {name}\n\n"
+                    f"Fund facts (authoritative — use these figures verbatim):\n{fund_facts or '(none found)'}\n\n"
+                    f"Conversation:\n{transcript}\n\n"
+                    "Write the email now, including the Fund details section."
+                )}],
+            }],
+            inferenceConfig={"maxTokens": 700, "temperature": 0.2},
+        )
+        text = "".join(b.get("text", "") for b in resp["output"]["message"].get("content", []))
+        text = text.strip()
+        if text:
+            return text
+    except Exception as exc:  # noqa: BLE001 - never block the email
+        logger.warning("Conversation summary failed (%s); using fund facts.", exc)
+
+    # Fallback: send the grounded fund facts directly (or the last answer).
+    if fund_facts:
+        return f"Hi {name},\n\nHere are the fund details you asked about:\n\n{fund_facts}\n\n— MF Investor Assistant"
+    fallback = _last_assistant_answer(history) or "Thanks for chatting with the MF Investor Assistant."
+    return _strip_disclaimer(fallback)
+
+
+def _do_email_this(user_id: str, profile: dict[str, Any], history: list[dict[str, str]]) -> dict[str, Any]:
+    """Email the last assistant answer to the signed-in user's address."""
+    # Must be signed in.
+    if user_id == "guest" or not get_memory().exists(user_id):
+        return {
+            "answer": (
+                "To email this to you, please sign in first so I know where to "
+                "send it. You can log in or create an account in a few seconds."
+            ),
+            "ctas": [
+                {"label": "Login", "action": "login", "url": ""},
+                {"label": "Register", "action": "register", "url": ""},
+            ],
+            "intent": "service",
+        }
+
+    recipient = _resolve_email(user_id, profile)
+    if not recipient:
+        return {
+            "answer": (
+                "I'd be happy to email this, but your account doesn't have an "
+                "email address on file (you're signed in with a mobile number). "
+                "Please share the email address you'd like me to send it to, or "
+                "register with an email."
+            ),
+            "ctas": [{"label": "Talk to an advisor", "action": "handoff", "url": ""}],
+            "intent": "service",
+        }
+
+    if not any(t.get("role") == "assistant" and t.get("content", "").strip() for t in history):
+        return {
+            "answer": "There's nothing to email yet — ask me a question first, then say 'email me this'.",
+            "ctas": [],
+            "intent": "service",
+        }
+
+    # Summarise the whole conversation into a clean email body (falls back to
+    # the last substantive answer if the model is unavailable).
+    body = _summarise_conversation(history, profile)
+
+    sent = toolbox.send_email(
+        to=recipient,
+        subject="Your mutual fund assistant summary",
+        body=body,
+    )
+    mode = "sent" if not sent.get("simulated") else "queued (demo mode — SES not live)"
+    answer = (
+        f"Done — I've {mode} the details to **{recipient}**. "
+        f"Please check your inbox (and spam folder just in case)."
+    )
+    return {
+        "answer": answer,
+        "ctas": [{"label": "Ask another question", "action": "ask", "url": ""}],
+        "intent": "service",
+        "tool_trace": [{"tool": "send_email", "input": {"to": recipient}, "output": sent}],
     }
 
 
@@ -495,7 +761,7 @@ def _fallback(message: str) -> dict[str, Any]:
         intent = "information"
     else:
         answer = (
-            "I couldn't find a specific document for that. I can help with Axis "
+            "I couldn't find a specific document for that. I can help with "
             "fund information, SIPs, KYC, redemptions, or connect you with an advisor."
         )
         ctas = [{"label": "Talk to an advisor", "action": "handoff", "url": ""}]

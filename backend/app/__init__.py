@@ -1,3 +1,3 @@
-"""Axis AMC MF Investor Assistant - backend package."""
+"""MF Investor Assistant - backend package."""
 
 __version__ = "0.1.0"

@@ -1,6 +1,6 @@
 :root {
-  --axis-maroon: #97144d;
-  --axis-maroon-dark: #6f0f3a;
+  --brand: #97144d;
+  --brand-dark: #6f0f3a;
   --bg: #f6f7fb;
   --card: #ffffff;
   --ink: #1d2433;
@@ -30,22 +30,22 @@ body {
 }
 .brand { display: flex; align-items: baseline; gap: 8px; }
 .logo {
-  background: var(--axis-maroon);
+  background: var(--brand);
   color: #fff;
   font-weight: 800;
   letter-spacing: 1px;
   padding: 4px 10px;
   border-radius: 6px;
 }
-.brand-name { font-weight: 600; color: var(--axis-maroon); }
+.brand-name { font-weight: 600; color: var(--brand); }
 .auth-area { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--muted); }
 .auth-status { font-weight: 600; color: var(--ink); }
 .auth-btn {
-  border: 1.5px solid var(--axis-maroon); background: var(--axis-maroon); color: #fff;
+  border: 1.5px solid var(--brand); background: var(--brand); color: #fff;
   border-radius: 8px; padding: 7px 16px; font-weight: 600; cursor: pointer; font-size: 0.85rem;
 }
-.auth-btn:hover { background: var(--axis-maroon-dark); }
-.auth-btn.ghost { background: #fff; color: var(--axis-maroon); }
+.auth-btn:hover { background: var(--brand-dark); }
+.auth-btn.ghost { background: #fff; color: var(--brand); }
 .auth-btn.ghost:hover { background: #fdf2f7; }
 
 /* Modal */
@@ -68,7 +68,7 @@ body {
   flex: 1; border: none; background: #f1f3f9; color: var(--muted);
   padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer;
 }
-.modal-tab.active { background: var(--axis-maroon); color: #fff; }
+.modal-tab.active { background: var(--brand); color: #fff; }
 .modal-form h2 { margin: 0 0 16px; font-size: 1.15rem; }
 .modal-form label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 14px; }
 .modal-form input, .modal-form select {
@@ -82,10 +82,13 @@ body {
   border-radius: 8px; padding: 8px 12px; font-size: 0.85rem; margin-bottom: 12px;
 }
 .modal-submit {
-  width: 100%; border: none; background: var(--axis-maroon); color: #fff;
+  width: 100%; border: none; background: var(--brand); color: #fff;
   padding: 12px; border-radius: 9px; font-weight: 700; cursor: pointer; font-size: 0.95rem;
 }
-.modal-submit:hover { background: var(--axis-maroon-dark); }
+.modal-submit:hover { background: var(--brand-dark); }
+.modal-link-row { text-align: center; margin: 12px 0 0; font-size: 0.85rem; }
+.modal-link-row a { color: var(--brand); text-decoration: none; }
+.modal-link-row a:hover { text-decoration: underline; }
 
 .container { max-width: 880px; margin: 0 auto; padding: 32px 20px 80px; }
 
@@ -108,14 +111,14 @@ body {
 }
 .search-box button {
   border: none;
-  background: var(--axis-maroon);
+  background: var(--brand);
   color: #fff;
   padding: 0 28px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
 }
-.search-box button:hover { background: var(--axis-maroon-dark); }
+.search-box button:hover { background: var(--brand-dark); }
 .context-hint { color: var(--muted); font-size: 0.85rem; margin-top: 12px; }
 .context-hint select { border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; }
 
@@ -133,7 +136,7 @@ body {
 .chip {
   background: #fdf2f7;
   border: 1px solid #f3cfe0;
-  color: var(--axis-maroon);
+  color: var(--brand);
   border-radius: 999px;
   padding: 8px 14px;
   cursor: pointer;
@@ -141,7 +144,7 @@ body {
 }
 .chip:hover { background: #fbe4ef; }
 
-#personalised a { color: var(--axis-maroon); }
+#personalised a { color: var(--brand); }
 
 .chat-panel {
   margin-top: 22px;
@@ -153,7 +156,7 @@ body {
 }
 .messages { padding: 18px; max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
 .msg { max-width: 85%; padding: 12px 15px; border-radius: 14px; line-height: 1.5; white-space: pre-wrap; }
-.msg.user { align-self: flex-end; background: var(--axis-maroon); color: #fff; border-bottom-right-radius: 4px; }
+.msg.user { align-self: flex-end; background: var(--brand); color: #fff; border-bottom-right-radius: 4px; }
 .msg.bot { align-self: flex-start; background: #f1f3f9; border-bottom-left-radius: 4px; }
 .msg.bot .disclaimer { color: var(--muted); font-size: 0.78rem; font-style: italic; margin-top: 8px; display: block; }
 .msg .intent-tag {
@@ -162,15 +165,15 @@ body {
 }
 .ctas { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .cta {
-  background: #fff; border: 1.5px solid var(--axis-maroon); color: var(--axis-maroon);
+  background: #fff; border: 1.5px solid var(--brand); color: var(--brand);
   border-radius: 8px; padding: 7px 12px; font-size: 0.85rem; font-weight: 600;
   cursor: pointer; text-decoration: none;
 }
-.cta:hover { background: var(--axis-maroon); color: #fff; }
+.cta:hover { background: var(--brand); color: #fff; }
 
 .chat-input { display: flex; border-top: 1px solid var(--border); }
 .chat-input input { flex: 1; border: none; outline: none; padding: 15px 18px; font-size: 0.95rem; }
-.chat-input button { border: none; background: var(--axis-maroon); color: #fff; padding: 0 24px; cursor: pointer; font-weight: 600; }
+.chat-input button { border: none; background: var(--brand); color: #fff; padding: 0 24px; cursor: pointer; font-weight: 600; }
 
 .typing { color: var(--muted); font-style: italic; }
 
@@ -180,7 +183,7 @@ body {
   background: var(--card); border: 1px solid var(--border); border-radius: 10px;
   padding: 10px 14px; margin-top: 10px; font-size: 0.85rem;
 }
-.outbox-item .kind { font-weight: 700; color: var(--axis-maroon); text-transform: uppercase; font-size: 0.72rem; }
+.outbox-item .kind { font-weight: 700; color: var(--brand); text-transform: uppercase; font-size: 0.72rem; }
 .badge-sim { background: #fff3cd; color: #92680d; border-radius: 6px; padding: 1px 6px; font-size: 0.7rem; margin-left: 6px; }
 
 .footer { text-align: center; color: var(--muted); font-size: 0.78rem; padding: 24px; }

@@ -6,6 +6,11 @@ architecture diagram (`MF Investor Assistant – CDS Architecture.png`).
 
 ## End-to-end request flow
 
+![End-to-end request flow](diagrams/flow-request.png)
+
+<details>
+<summary>Mermaid source</summary>
+
 ```mermaid
 flowchart TD
     subgraph Channels["Investor channels"]
@@ -36,7 +41,7 @@ flowchart TD
 
     subgraph Knowledge["Knowledge & data"]
         KB["Knowledge Bases for Bedrock<br/>(local corpus fallback)"]
-        SVCAPI["Service API (synthetic now)<br/>prod: DigiLocker KYC + Axis Bank APIs"]
+        SVCAPI["Service API (synthetic now)<br/>prod: identity/KYC provider + fund house APIs"]
         DDB["DynamoDB<br/>advisor hand-off queue"]
     end
 
@@ -65,7 +70,14 @@ flowchart TD
     AGENT -->|answer + CTAs| ROUTER --> WEB
 ```
 
+</details>
+
 ## Intent handling
+
+![Intent handling](diagrams/flow-intent.png)
+
+<details>
+<summary>Mermaid source</summary>
 
 ```mermaid
 flowchart LR
@@ -79,6 +91,8 @@ flowchart LR
     TXN --> CTA
     ADV2 --> CTA
 ```
+
+</details>
 
 ## Step reference
 
@@ -96,12 +110,13 @@ flowchart LR
 ## Confidential data (KYC / identity / transactions)
 
 The Service API node is **synthetic** in this demo (`tools.get_service_status`,
-`tools.complete_kyc`). In production, confidential investor details are not
+`tools.request_kyc`). KYC is raised as a queued request (status "In progress"),
+never auto-verified. In production, confidential investor details are not
 generated or stored by this assistant — they come from authoritative,
 consent-based sources:
 
-- **DigiLocker** for identity and KYC (PAN + Aadhaar, address proof); only the
-  verified result flows back to the agent — never raw document numbers.
-- **Axis Bank / Axis AMC APIs** for SIP, redemption, folio and account state.
+- An **identity/KYC provider** for identity and KYC (PAN + Aadhaar, address
+  proof); only the verified result flows back to the agent — never raw numbers.
+- **Fund house transaction APIs** for SIP, redemption, folio and account state.
 
 See [ARCHITECTURE.md §5](ARCHITECTURE.md#5-confidential-data-sources-kyc-identity-transactions).
