@@ -79,7 +79,7 @@ Mapped directly to the PRD:
 
 ```
 mf-investor-assistant/
-├─ .env                         # AWS + Bedrock credentials (already provided)
+├─ .env                         # AWS/Bedrock/Cognito/SES config (git-ignored; not committed)
 ├─ README.md
 ├─ backend/                     # Python FastAPI service (the agent)
 │  ├─ requirements.txt
@@ -257,11 +257,13 @@ list.
 ```powershell
 cd backend
 .\.venv\Scripts\Activate.ps1
-python -m pytest -q            # or: python tests/test_smoke.py
+python tests/test_smoke.py        # standalone, no extra deps
+# or, if you have pytest installed:  pip install pytest && python -m pytest -q
 ```
 
-The smoke test exercises the knowledge base, guardrails, and the local agent
-fallback without requiring network access.
+The smoke test runs offline (it forces `SIMULATE_CHANNELS=true`) and exercises
+the knowledge base, guardrails, PII masking, the model-JSON parser, and the
+agent fallback — no network, AWS, or email sending required.
 
 ## Documentation
 
